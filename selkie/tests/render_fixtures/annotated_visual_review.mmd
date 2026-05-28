@@ -1,0 +1,20 @@
+flowchart TD
+    subgraph Ops[Operations]
+        A["Start"]
+        B["Review request"]
+        C["Escalate"]
+    end
+
+    A -->|"approve"| D["Ship"]
+    B -->|"retry"| C
+    C --> D
+
+    %% @graph width_cm="18" height_cm="10" canvas_fill="#f9fbff" font_face="Aptos" node_label_font_size="18" group_label_font_size="20" edge_label_font_size="14"
+    %% @group Ops x="40" y="50" w="300" h="230" fill="#eef6ff" stroke="#99bbdd"
+    %% @node A x="20" y="20" w="110" h="60" fill="#fff4cc" stroke="#cc9900" line_width="2"
+    %% @node B x="160" y="90" w="120" h="70" fill="#ffffff" stroke="#4477aa"
+    %% @node C x="160" y="180" w="120" h="60" fill="#ffe6e6" stroke="#cc6666"
+    %% @node D x="420" y="150" w="120" h="70" fill="#e7f7e7" stroke="#5d9c5d"
+    %% @edge A->D line_color="#3366cc" line_style="dash" start_connection="right" end_connection="left" path_mode="orthogonal" end_arrow="cross"
+    %% @edge B->C line_color="#cc6666" line_style="dot" start_connection="bottom" end_connection="top" bend_points="220,170|220,180"
+    %% @edge C->D line_color="#444444" line_width="3" start_arrow="circle" end_arrow="point" label_offset_x="10" label_offset_y="-6"

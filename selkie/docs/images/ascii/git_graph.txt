@@ -1,0 +1,9 @@
+  ● │A
+  ● │B
+  │ ◆C (feature)
+  ● │D
+  ● │4-5fb11 (main)
+
+  Branches:
+    ● main
+    ◆ feature

@@ -1,0 +1,17 @@
+o mindmap o
+├── Origins
+│   ├── Long history
+│   └── Popularisation
+│       └── British popular psychology author Tony Buzan
+├── Research
+│   ├── On effectiveness and features
+│   └── On Automatic creation
+│       └── Uses
+│           ├── Creative techniques
+│           ├── Strategic planning
+│           └── Argument mapping
+└── Tools
+    ├── Pen and paper
+    └── Mermaid
+        ├── ☁ I am a cloud ☁
+        └── ⚡ I am a bang ⚡

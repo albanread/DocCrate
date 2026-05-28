@@ -1,0 +1,32 @@
+stateDiagram-v2
+    %% State diagram with composite states, fork/join, and nested composites
+    direction TB
+
+    [*] --> Idle
+
+    state Idle {
+        [*] --> Ready
+        Ready --> Active: Start Job
+    }
+
+    %% Fork and join for parallel processing
+    state fork_state <<fork>>
+    state join_state <<join>>
+
+    Idle --> fork_state
+    fork_state --> Validation
+    fork_state --> ResourceAlloc
+
+    Validation --> join_state
+    ResourceAlloc --> join_state
+    join_state --> Processing
+
+    state Processing {
+        [*] --> Validating
+        Validating --> Executing
+
+        state Executing {
+            [*] --> Init
+            Init --> Done
+        }
+    }

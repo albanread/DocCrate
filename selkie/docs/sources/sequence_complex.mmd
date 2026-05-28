@@ -1,0 +1,48 @@
+sequenceDiagram
+    autonumber
+    participant User
+    participant Browser
+    participant API
+    participant Auth
+    participant DB
+    participant Queue
+
+    Note over User,Queue: E-Commerce Checkout Flow
+
+    User->>Browser: Click Checkout
+    activate Browser
+    Browser->>+API: POST /checkout
+
+    Note right of API: Validate cart items
+
+    API->>+Auth: Verify session
+    Auth->>DB: Query user
+    DB-->>Auth: User record
+    Auth-->>-API: Session valid
+
+    alt Cart Empty
+        API-->>Browser: Error: Empty cart
+        Browser-->>User: Show error
+    else Cart Valid
+        API->>+DB: Reserve inventory
+
+        par Process Payment
+            API->>Queue: Queue payment job
+            Queue-->>API: Job queued
+        and Send Notifications
+            API--)Queue: Queue email confirmation
+        end
+
+        DB-->>-API: Inventory reserved
+
+        loop Retry up to 3 times
+            API->>Queue: Check payment status
+            Queue-->>API: Payment pending
+        end
+
+        Note over API,Queue: Payment confirmed
+
+        API-->>-Browser: Order confirmed
+        Browser-->>User: Show confirmation
+    end
+    deactivate Browser

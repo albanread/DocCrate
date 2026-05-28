@@ -1,0 +1,4063 @@
+//! Integration tests for the rendering engine
+
+use selkie::render::{RenderConfig, Theme};
+use selkie::{parse, render, render_text, render_with_config};
+#[cfg(feature = "png")]
+use selkie::{render_png, render_png_with_config, render_text_png, svg_to_png_with_size};
+
+// ============================================================================
+// Output Format Tests (PNG/PDF)
+// ============================================================================
+
+#[cfg(feature = "png")]
+mod png_output_tests {
+    use super::*;
+
+    fn assert_png_header(png_data: &[u8]) {
+        assert!(
+            png_data.starts_with(&[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
+            "Output should be valid PNG (check magic bytes)"
+        );
+        assert!(png_data.len() > 100, "PNG should have content");
+    }
+
+    /// Test that rendered diagrams can be converted to valid PNG
+    #[test]
+    fn test_render_png_produces_valid_png() {
+        let input = r#"flowchart LR
+            A[Start] --> B[End]"#;
+
+        let diagram = parse(input).expect("Failed to parse");
+        let png_data = render_png(&diagram).expect("Failed to render PNG");
+        assert_png_header(&png_data);
+    }
+
+    /// Test that text rendering can go directly to PNG.
+    #[test]
+    fn test_render_text_png_produces_valid_png() {
+        let input = r#"flowchart LR
+            A --> B --> C"#;
+
+        let png_data = render_text_png(input).expect("Failed to render text directly to PNG");
+        assert_png_header(&png_data);
+    }
+
+    /// Test that PNG output respects explicit sizing.
+    #[test]
+    fn test_svg_to_png_with_size_respects_scaling() {
+        let input = r#"flowchart LR
+            A --> B --> C"#;
+
+        let diagram = parse(input).expect("Failed to parse");
+        let svg = render(&diagram).expect("Failed to render");
+        let png_data =
+            svg_to_png_with_size(&svg, Some(800), Some(400)).expect("Failed to scale PNG");
+
+        let image = image::load_from_memory(&png_data).expect("Failed to decode PNG");
+        assert_eq!(image.width(), 800);
+        assert_eq!(image.height(), 400);
+    }
+
+    /// Test PNG output with dark theme
+    #[test]
+    fn test_png_with_dark_theme() {
+        let input = r#"flowchart TB
+            A[Start] --> B{Decision}
+            B -->|Yes| C[End]"#;
+
+        let diagram = parse(input).expect("Failed to parse");
+        let config = RenderConfig {
+            theme: Theme::dark(),
+            ..Default::default()
+        };
+        let png_data = render_png_with_config(&diagram, &config).expect("Failed to render PNG");
+        assert_png_header(&png_data);
+    }
+}
+
+#[cfg(feature = "pdf")]
+mod pdf_output_tests {
+    use super::*;
+
+    /// Test that SVG can be converted to valid PDF
+    #[test]
+    fn test_svg_to_pdf_produces_valid_pdf() {
+        let input = r#"flowchart LR
+            A[Start] --> B[End]"#;
+
+        let diagram = parse(input).expect("Failed to parse");
+        let svg = render(&diagram).expect("Failed to render");
+
+        use resvg::usvg;
+
+        let mut opt = usvg::Options::default();
+        opt.fontdb_mut().load_system_fonts();
+
+        let tree = usvg::Tree::from_str(&svg, &opt).expect("Failed to parse SVG");
+
+        let pdf_data = svg2pdf::to_pdf(
+            &tree,
+            svg2pdf::ConversionOptions::default(),
+            svg2pdf::PageOptions::default(),
+        )
+        .expect("Failed to convert to PDF");
+
+        // Verify PDF header
+        assert!(
+            pdf_data.starts_with(b"%PDF-"),
+            "Output should be valid PDF (check header)"
+        );
+
+        // Should have reasonable size
+        assert!(pdf_data.len() > 100, "PDF should have content");
+    }
+
+    /// Test PDF output with various diagram types
+    #[test]
+    fn test_pdf_with_different_diagrams() {
+        let diagrams = [
+            (
+                "flowchart",
+                r#"flowchart TB
+                A --> B --> C"#,
+            ),
+            (
+                "pie",
+                r#"pie title Test
+                "A" : 50
+                "B" : 50"#,
+            ),
+            (
+                "state",
+                r#"stateDiagram-v2
+                [*] --> Active
+                Active --> [*]"#,
+            ),
+        ];
+
+        for (name, input) in diagrams {
+            let diagram = parse(input).unwrap_or_else(|_| panic!("Failed to parse {}", name));
+            let svg = render(&diagram).unwrap_or_else(|_| panic!("Failed to render {}", name));
+
+            use resvg::usvg;
+
+            let mut opt = usvg::Options::default();
+            opt.fontdb_mut().load_system_fonts();
+
+            let tree = usvg::Tree::from_str(&svg, &opt)
+                .unwrap_or_else(|_| panic!("Failed to parse {} SVG", name));
+
+            let pdf_data = svg2pdf::to_pdf(
+                &tree,
+                svg2pdf::ConversionOptions::default(),
+                svg2pdf::PageOptions::default(),
+            )
+            .unwrap_or_else(|_| panic!("Failed to convert {} to PDF", name));
+
+            assert!(
+                pdf_data.starts_with(b"%PDF-"),
+                "{} should produce valid PDF",
+                name
+            );
+        }
+    }
+}
+
+// ============================================================================
+// Original Integration Tests
+// ============================================================================
+
+#[test]
+fn test_simple_flowchart_renders_to_svg() {
+    let input = r#"flowchart LR
+    A[Start] --> B[Process]
+    B --> C[End]"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Verify basic SVG structure
+    assert!(svg.contains("<svg"), "SVG should have opening tag");
+    assert!(svg.contains("</svg>"), "SVG should have closing tag");
+    assert!(
+        svg.contains("xmlns=\"http://www.w3.org/2000/svg\""),
+        "SVG should have namespace"
+    );
+
+    // Verify node labels are present
+    assert!(svg.contains("Start"), "SVG should contain 'Start' label");
+    assert!(
+        svg.contains("Process"),
+        "SVG should contain 'Process' label"
+    );
+    assert!(svg.contains("End"), "SVG should contain 'End' label");
+}
+
+#[test]
+fn test_flowchart_with_decision_diamond() {
+    let input = r#"flowchart TB
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Action]
+    B -->|No| D[End]"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Verify diamond shape (polygon) is rendered
+    assert!(
+        svg.contains("<polygon"),
+        "SVG should contain polygon for diamond shape"
+    );
+
+    // Verify all labels present
+    assert!(svg.contains("Start"), "SVG should contain 'Start' label");
+    assert!(
+        svg.contains("Decision"),
+        "SVG should contain 'Decision' label"
+    );
+    assert!(svg.contains("Action"), "SVG should contain 'Action' label");
+}
+
+#[test]
+fn test_flowchart_with_various_shapes() {
+    let input = r#"flowchart TD
+    A([Stadium]) --> B[[Subroutine]]
+    B --> C[(Database)]
+    C --> D((Circle))
+    D --> E>Odd]"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Verify SVG generated
+    assert!(svg.contains("<svg"), "SVG should have opening tag");
+
+    // Verify labels
+    assert!(
+        svg.contains("Stadium"),
+        "SVG should contain 'Stadium' label"
+    );
+    assert!(
+        svg.contains("Subroutine"),
+        "SVG should contain 'Subroutine' label"
+    );
+    assert!(
+        svg.contains("Database"),
+        "SVG should contain 'Database' label"
+    );
+    assert!(svg.contains("Circle"), "SVG should contain 'Circle' label");
+}
+
+#[test]
+fn test_flowchart_annotation_styles_reflect_in_svg() {
+    let input = r##"flowchart TD
+    A[Start] --> B[Review]
+    A --> B
+    subgraph Ops[Operations]
+        B --> C[Ship]
+    end
+    %% @node B fill="#fff4cc" stroke="#cc9900" line_width="3"
+    %% @edge A->B#2 line_color="#3366cc" line_style="dash" label_offset_x="10" label_offset_y="-4"
+    %% @group Ops fill="#eef6ff" stroke="#99bbdd"
+    "##;
+
+    let svg = render_text(input).expect("Failed to render annotated flowchart");
+
+    assert!(
+        svg.contains("fill: #fff4cc") || svg.contains("fill:#fff4cc"),
+        "Node override fill should appear in SVG. SVG:\n{}",
+        svg
+    );
+    assert!(
+        svg.contains("stroke: #cc9900") || svg.contains("stroke:#cc9900"),
+        "Node override stroke should appear in SVG. SVG:\n{}",
+        svg
+    );
+    assert!(
+        svg.contains("stroke=\"#3366cc\"")
+            || svg.contains("style=\"stroke: #3366cc")
+            || svg.contains("style=\"stroke:#3366cc"),
+        "Edge annotation line color should appear on the rendered path. SVG:\n{}",
+        svg
+    );
+    assert!(
+        svg.contains("stroke-dasharray=\"6,4\""),
+        "Edge annotation dash style should appear on the rendered path. SVG:\n{}",
+        svg
+    );
+    assert!(
+        (svg.contains("fill=\"#eef6ff\"") || svg.contains("style=\"fill: #eef6ff"))
+            && (svg.contains("stroke=\"#99bbdd\"") || svg.contains("stroke: #99bbdd")),
+        "Group annotation fill/stroke should appear on the rendered cluster. SVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_flowchart_annotation_canvas_and_font_defaults_reflect_in_svg() {
+    let input = r##"flowchart TD
+    A[Start] --> B[Finish]
+    %% @graph width_cm="18" height_cm="10" canvas_fill="#f9fbff" font_face="Aptos" node_label_font_size="18" group_label_font_size="20" edge_label_font_size="14"
+    "##;
+
+    let svg = render_text(input).expect("Failed to render annotated flowchart");
+
+    assert!(
+        svg.contains("class=\"annotation-canvas-bg\"") && svg.contains("fill=\"#f9fbff\""),
+        "Canvas fill annotation should render as a background rect. SVG:\n{}",
+        svg
+    );
+    assert!(
+        svg.contains("width=\"18cm\"") && svg.contains("height=\"10cm\""),
+        "Graph physical size annotations should drive the SVG width/height attributes. SVG:\n{}",
+        svg
+    );
+    assert!(
+        svg.contains("font-family: Aptos"),
+        "Graph font_face annotation should appear in embedded SVG CSS. SVG:\n{}",
+        svg
+    );
+    assert!(
+        svg.contains(".mermaid .node .label { font-size: 18px; }"),
+        "Node label font size annotation should appear in embedded SVG CSS. SVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_flowchart_without_geometry_annotations_keeps_automatic_layout() {
+    let input = r#"flowchart TD
+    subgraph Ops[Operations]
+        A[Start] --> B[Review]
+    end"#;
+
+    let svg = render_text(input).expect("Failed to render unannotated flowchart");
+    let node_re = regex::Regex::new(
+        r#"(?s)<g class="node" id="node-A">\s*<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)""#,
+    )
+    .unwrap();
+    let group_re = regex::Regex::new(
+        r#"(?s)id="subgraph-Ops".*?<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)" class="cluster""#,
+    )
+    .unwrap();
+
+    let node_caps = node_re
+        .captures(&svg)
+        .expect("Expected node A geometry in SVG");
+    let group_caps = group_re
+        .captures(&svg)
+        .expect("Expected Ops subgraph geometry in SVG");
+
+    let node_x = node_caps[1].parse::<f64>().unwrap();
+    let node_y = node_caps[2].parse::<f64>().unwrap();
+    let group_x = group_caps[1].parse::<f64>().unwrap();
+    let group_y = group_caps[2].parse::<f64>().unwrap();
+
+    assert!(
+        (node_x - 70.0).abs() > 1.0 || (node_y - 125.0).abs() > 1.0,
+        "Without annotations the node should stay on automatic layout, not the manual position. SVG:\n{}",
+        svg
+    );
+    assert!(
+        (group_x - 40.0).abs() > 1.0 || (group_y - 60.0).abs() > 1.0,
+        "Without annotations the group should stay on automatic layout, not the manual box. SVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_flowchart_geometry_annotations_drive_svg_positions_and_routing() {
+    let input = r##"flowchart TD
+    subgraph Ops[Operations]
+        A[Start] --> B[Review]
+    end
+    %% @group Ops x="40" y="60" w="260" h="220"
+    %% @node A x="10" y="20" w="100" h="60"
+    %% @node B x="140" y="110" w="120" h="70"
+    %% @edge A->B start_connection="right" end_connection="left" path_mode="straight"
+    "##;
+
+    let svg = render_text(input).expect("Failed to render annotated flowchart");
+    let node_re = regex::Regex::new(
+        r#"(?s)<g class="node" id="node-A">\s*<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)""#,
+    )
+    .unwrap();
+    let group_re = regex::Regex::new(
+        r#"(?s)id="subgraph-Ops".*?<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)" class="cluster""#,
+    )
+    .unwrap();
+    let edge_re = regex::Regex::new(r#"(?s)id="edge-L-A-B-0".*?<path d="([^"]+)""#).unwrap();
+
+    let node_caps = node_re
+        .captures(&svg)
+        .expect("Expected node A geometry in SVG");
+    let group_caps = group_re
+        .captures(&svg)
+        .expect("Expected Ops subgraph geometry in SVG");
+    let edge_caps = edge_re
+        .captures(&svg)
+        .expect("Expected A->B edge path in SVG");
+
+    let node_x = node_caps[1].parse::<f64>().unwrap();
+    let node_y = node_caps[2].parse::<f64>().unwrap();
+    let node_w = node_caps[3].parse::<f64>().unwrap();
+    let node_h = node_caps[4].parse::<f64>().unwrap();
+    let group_x = group_caps[1].parse::<f64>().unwrap();
+    let group_y = group_caps[2].parse::<f64>().unwrap();
+    let group_w = group_caps[3].parse::<f64>().unwrap();
+    let group_h = group_caps[4].parse::<f64>().unwrap();
+    let edge_path = edge_caps.get(1).unwrap().as_str();
+
+    assert!(
+        (group_x - 40.0).abs() < 0.1
+            && (group_y - 60.0).abs() < 0.1
+            && (group_w - 260.0).abs() < 0.1
+            && (group_h - 220.0).abs() < 0.1,
+        "Group geometry overrides should drive the SVG cluster box. SVG:\n{}",
+        svg
+    );
+    assert!(
+        (node_x - 70.0).abs() < 0.1
+            && (node_y - 125.0).abs() < 0.1
+            && (node_w - 100.0).abs() < 0.1
+            && (node_h - 60.0).abs() < 0.1,
+        "Node geometry overrides should place A relative to the annotated group origin. SVG:\n{}",
+        svg
+    );
+    assert!(
+        edge_path.contains("M 170 155 L 200 250"),
+        "Edge routing overrides should use the annotated connection points and straight path. Path: {}",
+        edge_path
+    );
+}
+
+#[test]
+fn test_flowchart_edge_bend_points_render_as_exact_segments() {
+    let input = r##"flowchart TD
+    A[Start] --> B[Finish]
+    %% @node A x="20" y="40" w="80" h="50"
+    %% @node B x="260" y="200" w="100" h="60"
+    %% @edge A->B start_connection="right" end_connection="left" bend_points="180,65|180,230"
+    "##;
+
+    let svg = render_text(input).expect("Failed to render bend-point flowchart");
+    let edge_re = regex::Regex::new(r#"(?s)id="edge-L-A-B-0".*?<path d="([^"]+)""#).unwrap();
+    let edge_path = edge_re
+        .captures(&svg)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str().to_string())
+        .expect("Expected A->B edge path in SVG");
+
+    assert!(
+        edge_path.contains("M 100 65 L 180 65 L 180 230 L 260 230"),
+        "Manual bend points should render as exact line segments without smoothing. Path: {}",
+        edge_path
+    );
+    assert!(
+        !edge_path.contains(" C "),
+        "Manual bend-point path should not be converted to a curve. Path: {}",
+        edge_path
+    );
+}
+
+#[test]
+fn test_flowchart_edge_orthogonal_mode_renders_right_angle_path() {
+    let input = r##"flowchart TD
+    A[Start] --> B[Finish]
+    %% @node A x="30" y="30" w="90" h="60"
+    %% @node B x="260" y="180" w="110" h="70"
+    %% @edge A->B start_connection="bottom" end_connection="left" path_mode="orthogonal"
+    "##;
+
+    let svg = render_text(input).expect("Failed to render orthogonal flowchart");
+    let edge_re = regex::Regex::new(r#"(?s)id="edge-L-A-B-0".*?<path d="([^"]+)""#).unwrap();
+    let edge_path = edge_re
+        .captures(&svg)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str().to_string())
+        .expect("Expected A->B edge path in SVG");
+
+    assert!(
+        edge_path.contains("M 75 90 L 167.5 90 L 167.5 215 L 260 215"),
+        "Orthogonal routing should produce an exact right-angle polyline. Path: {}",
+        edge_path
+    );
+    assert!(
+        !edge_path.contains(" C "),
+        "Orthogonal routing should not be smoothed into a curve. Path: {}",
+        edge_path
+    );
+}
+
+#[test]
+fn test_flowchart_arrowhead_annotations_override_mermaid_markers() {
+    let input = r##"flowchart TD
+    A[Start] --> B[Finish]
+    %% @edge A->B start_arrow="circle" end_arrow="cross"
+    "##;
+
+    let svg = render_text(input).expect("Failed to render arrowhead override flowchart");
+    assert!(
+        svg.contains("id=\"edge-L-A-B-0\""),
+        "Expected the annotated edge group in SVG:\n{}",
+        svg
+    );
+    assert!(
+        svg.contains("marker-start=\"url(#arrow_circle_start)\""),
+        "start_arrow annotation should override the start marker. SVG:\n{}",
+        svg
+    );
+    assert!(
+        svg.contains("marker-end=\"url(#arrow_cross)\""),
+        "end_arrow annotation should override the end marker. SVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_flowchart_arrowhead_none_removes_end_marker() {
+    let input = r##"flowchart TD
+    A[Start] --> B[Finish]
+    %% @edge A->B end_arrow="none"
+    "##;
+
+    let svg = render_text(input).expect("Failed to render arrowhead-none flowchart");
+    let edge_re = regex::Regex::new(r#"(?s)id="edge-L-A-B-0".*?<path ([^>]+)""#).unwrap();
+    let attrs = edge_re
+        .captures(&svg)
+        .and_then(|caps| caps.get(1))
+        .map(|m| m.as_str().to_string())
+        .expect("Expected A->B edge path attributes");
+
+    assert!(
+        !attrs.contains("marker-end="),
+        "end_arrow=\"none\" should remove the end marker. Attrs: {}",
+        attrs
+    );
+}
+
+#[test]
+fn test_render_with_dark_theme() {
+    let input = r#"flowchart LR
+    A --> B"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let config = RenderConfig {
+        theme: Theme::dark(),
+        ..Default::default()
+    };
+    let svg = render_with_config(&diagram, &config).expect("Failed to render with dark theme");
+
+    // Verify SVG generated with dark theme
+    assert!(svg.contains("<svg"), "SVG should have opening tag");
+    // Dark theme should have dark background color in styles
+    assert!(
+        svg.contains("<style>"),
+        "SVG should contain embedded styles"
+    );
+}
+
+#[test]
+fn test_render_with_forest_theme() {
+    let input = r#"flowchart LR
+    A --> B"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let config = RenderConfig {
+        theme: Theme::forest(),
+        ..Default::default()
+    };
+    let svg = render_with_config(&diagram, &config).expect("Failed to render with forest theme");
+
+    // Verify SVG generated with forest theme
+    assert!(svg.contains("<svg"), "SVG should have opening tag");
+    assert!(
+        svg.contains("<style>"),
+        "SVG should contain embedded styles"
+    );
+    // Forest theme should have green colors in styles
+    assert!(
+        svg.contains("#cde498") || svg.contains("#cdffb2") || svg.contains("#13540c"),
+        "Forest theme should have green color palette, got: {}",
+        &svg[..500.min(svg.len())]
+    );
+}
+
+#[test]
+fn test_render_with_base_theme() {
+    let input = r#"flowchart LR
+    A --> B"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let config = RenderConfig {
+        theme: Theme::base(),
+        ..Default::default()
+    };
+    let svg = render_with_config(&diagram, &config).expect("Failed to render with base theme");
+
+    // Verify SVG generated with base theme
+    assert!(svg.contains("<svg"), "SVG should have opening tag");
+    assert!(
+        svg.contains("<style>"),
+        "SVG should contain embedded styles"
+    );
+    // Base theme should have neutral warm colors
+    assert!(
+        svg.contains("#fff4dd") || svg.contains("#f4f4f4"),
+        "Base theme should have neutral warm color palette, got: {}",
+        &svg[..500.min(svg.len())]
+    );
+}
+
+#[test]
+fn test_render_with_custom_padding() {
+    let input = r#"flowchart LR
+    A --> B"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let config = RenderConfig {
+        padding: 50.0,
+        ..Default::default()
+    };
+    let svg = render_with_config(&diagram, &config).expect("Failed to render with custom padding");
+
+    assert!(svg.contains("<svg"), "SVG should have opening tag");
+}
+
+#[test]
+fn test_flowchart_with_edge_labels() {
+    let input = r#"flowchart LR
+    A -->|label text| B"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Verify edge label is present
+    assert!(svg.contains("label text"), "SVG should contain edge label");
+}
+
+#[test]
+fn test_flowchart_all_directions() {
+    let directions = ["TB", "TD", "BT", "LR", "RL"];
+
+    for dir in &directions {
+        let input = format!("flowchart {}\n    A --> B", dir);
+        let diagram = parse(&input)
+            .unwrap_or_else(|_| panic!("Failed to parse flowchart with direction {}", dir));
+        let svg = render(&diagram)
+            .unwrap_or_else(|_| panic!("Failed to render flowchart with direction {}", dir));
+
+        assert!(
+            svg.contains("<svg"),
+            "SVG should have opening tag for direction {}",
+            dir
+        );
+    }
+}
+
+#[test]
+fn test_flowchart_with_subgraph() {
+    let input = r#"flowchart TB
+    subgraph one
+        A --> B
+    end
+    subgraph two
+        C --> D
+    end
+    B --> C"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart with subgraphs");
+    let svg = render(&diagram).expect("Failed to render flowchart with subgraphs");
+
+    // Verify basic structure
+    assert!(svg.contains("<svg"), "SVG should have opening tag");
+}
+
+#[test]
+fn test_arrow_markers_are_defined() {
+    let input = r#"flowchart LR
+    A --> B"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Verify arrow markers are defined in defs section
+    assert!(svg.contains("<defs>"), "SVG should have defs section");
+    assert!(
+        svg.contains("<marker"),
+        "SVG should define markers for arrows"
+    );
+}
+
+#[test]
+fn test_edges_use_path_elements() {
+    let input = r#"flowchart LR
+    A --> B --> C"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Verify edges are rendered as path elements
+    assert!(
+        svg.contains("<path"),
+        "SVG should contain path elements for edges"
+    );
+}
+
+#[test]
+fn test_flowchart_nodes_have_proper_styling_class() {
+    // Issue: CSS selectors like ".node rect" require shapes to be INSIDE a .node element,
+    // but shapes were getting class="node" directly, causing CSS not to match
+    // and shapes to render with default black fill.
+    let input = r#"flowchart LR
+    A[Start] --> B[End]"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Shapes should be wrapped in a group with class="node"
+    // Pattern: <g class="node" ...><rect .../></g>
+    assert!(
+        svg.contains(r#"<g class="node""#),
+        "Should have group elements with class='node'"
+    );
+
+    // The rect should NOT have class="node" directly (which breaks CSS)
+    // Bad: <rect class="node" .../>
+    // Good: <g class="node"><rect .../></g>
+    assert!(
+        !svg.contains(r#"<rect "#) || !svg.contains(r#"class="node"/>"#),
+        "rect elements should not have class='node' directly - should be inside a .node group"
+    );
+}
+
+#[test]
+fn test_state_diagram_has_start_state() {
+    // Issue: State diagrams were missing the initial [*] state circle
+    let input = r#"stateDiagram-v2
+    [*] --> Idle
+    Idle --> Running"#;
+
+    let diagram = parse(input).expect("Failed to parse state diagram");
+    let svg = render(&diagram).expect("Failed to render state diagram");
+
+    // Should have a filled circle for start state
+    assert!(
+        svg.contains("<circle") && svg.contains("start"),
+        "State diagram should render the [*] start state as a circle"
+    );
+}
+
+#[test]
+fn test_state_diagram_has_end_state_bullseye() {
+    // Issue: End state should be a circle-in-circle (bullseye), not just a dot
+    let input = r#"stateDiagram-v2
+    Running --> [*]"#;
+
+    let diagram = parse(input).expect("Failed to parse state diagram");
+    let svg = render(&diagram).expect("Failed to render state diagram");
+
+    // End state should have double circles (outer ring + inner fill)
+    // These are rendered as paths (not circles) to match mermaid reference
+    // Check for both state-end-outer and state-end-inner classes
+    assert!(
+        svg.contains("state-end-outer") && svg.contains("state-end-inner"),
+        "End state should be rendered as bullseye (outer + inner) paths"
+    );
+}
+
+#[test]
+fn test_class_diagram_inheritance_uses_hollow_triangle() {
+    // Issue: Class inheritance should use hollow triangle arrowhead (UML standard)
+    let input = r#"classDiagram
+    Animal <|-- Dog"#;
+
+    let diagram = parse(input).expect("Failed to parse class diagram");
+    let svg = render(&diagram).expect("Failed to render class diagram");
+
+    // Should have an inheritance marker defined (hollow triangle)
+    assert!(
+        svg.contains("marker") && svg.contains("inheritance"),
+        "Class diagram should define an inheritance marker for hollow triangle arrows"
+    );
+}
+
+#[test]
+fn test_class_diagram_hierarchical_layout() {
+    // Issue: Parent classes should appear above child classes in class diagrams
+    let input = r#"classDiagram
+    Animal <|-- Duck
+    Animal <|-- Fish
+    Animal <|-- Zebra"#;
+
+    let diagram = parse(input).expect("Failed to parse class diagram");
+    let svg = render(&diagram).expect("Failed to render class diagram");
+
+    // Extract y-coordinates from SVG to verify layout
+    // Animal (parent) should have smaller y value than children
+
+    // Find the class boxes by looking for class-node groups
+    // The y values in transform or rect elements indicate vertical position
+    // Parent (Animal) should be above children (Duck, Fish, Zebra)
+
+    // Check that we have all 4 classes rendered
+    assert!(svg.contains("Animal"), "Should contain Animal class");
+    assert!(svg.contains("Duck"), "Should contain Duck class");
+    assert!(svg.contains("Fish"), "Should contain Fish class");
+    assert!(svg.contains("Zebra"), "Should contain Zebra class");
+
+    // TODO: Add more specific y-coordinate checks once hierarchical layout is implemented
+}
+
+#[test]
+fn test_state_diagram_both_start_and_end_states() {
+    // Issue: When a diagram has both [*] --> State and State --> [*],
+    // both start (filled circle) and end (bullseye) states should be rendered.
+    // Previously, both [*] were treated as the same state.
+    let input = r#"stateDiagram-v2
+    [*] --> Idle
+    Idle --> Running
+    Running --> [*]"#;
+
+    let diagram = parse(input).expect("Failed to parse state diagram");
+    let svg = render(&diagram).expect("Failed to render state diagram");
+
+    // Should have separate start and end states
+    // Start state: 1 filled circle with state-start class
+    // End state: 2 paths (outer + inner) with state-end-* classes (rendered as paths to match mermaid)
+
+    // Check for start state (filled circle)
+    assert!(
+        svg.contains("state-start"),
+        "State diagram should have a start state with class 'state-start'. SVG:\n{}",
+        svg
+    );
+
+    // Check for end state (bullseye with outer and inner paths)
+    assert!(
+        svg.contains("state-end-outer") && svg.contains("state-end-inner"),
+        "State diagram should have an end state with bullseye (outer and inner paths). SVG:\n{}",
+        svg
+    );
+
+    // Should have at least 1 circle for start state
+    let circle_count = svg.matches("<circle").count();
+    assert!(
+        circle_count >= 1,
+        "State diagram should have at least 1 circle (start state), found {}. SVG:\n{}",
+        circle_count,
+        svg
+    );
+}
+
+#[test]
+fn test_pie_chart_has_legend() {
+    // Issue: Pie chart should have a legend with colored boxes and labels
+    let input = r#"pie title Test Distribution
+    "Alpha" : 40
+    "Beta" : 30
+    "Gamma" : 30"#;
+
+    let diagram = parse(input).expect("Failed to parse pie chart");
+    let svg = render(&diagram).expect("Failed to render pie chart");
+
+    // Should have a legend with colored rectangles
+    assert!(
+        svg.contains("pie-legend") || svg.contains("legend"),
+        "Pie chart should have a legend. SVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_pie_chart_preserves_section_order() {
+    // Issue: Pie chart should render slices in declaration order, not alphabetically
+    // Use labels that would be reordered alphabetically: Zebra, Apple, Mango
+    // Declaration order: Zebra, Apple, Mango
+    // Alphabetical order: Apple, Mango, Zebra
+    let input = r#"pie
+    "Zebra" : 40
+    "Apple" : 30
+    "Mango" : 30"#;
+
+    let diagram = parse(input).expect("Failed to parse pie chart");
+    let svg = render(&diagram).expect("Failed to render pie chart");
+
+    // Find positions of labels in the SVG
+    let zebra_pos = svg.find("Zebra").unwrap_or(usize::MAX);
+    let apple_pos = svg.find("Apple").unwrap_or(usize::MAX);
+    let mango_pos = svg.find("Mango").unwrap_or(usize::MAX);
+
+    // The slices should be rendered in declaration order (Zebra first, then Apple, then Mango)
+    // If sorted alphabetically, Apple would come first, which is wrong
+    assert!(
+        zebra_pos < apple_pos && apple_pos < mango_pos,
+        "Pie chart sections should be rendered in declaration order (Zebra, Apple, Mango), not alphabetically. Zebra={}, Apple={}, Mango={}",
+        zebra_pos, apple_pos, mango_pos
+    );
+}
+
+#[test]
+fn test_pie_chart_renders_small_percentage_labels() {
+    // Issue: Small slices like 4% should still have percentage labels rendered
+    // The Voldemort pie chart has FRIENDS=2 (4%), FAMILY=3 (6%), NOSE=45 (90%)
+    let input = r#"pie title What Voldemort doesnt have
+         "FRIENDS" : 2
+         "FAMILY" : 3
+         "NOSE" : 45"#;
+
+    let diagram = parse(input).expect("Failed to parse pie chart");
+    let svg = render(&diagram).expect("Failed to render pie chart");
+
+    // All percentage labels should be present
+    assert!(
+        svg.contains("90%"),
+        "Should render 90% label. SVG:\n{}",
+        svg
+    );
+    assert!(svg.contains("6%"), "Should render 6% label. SVG:\n{}", svg);
+    assert!(
+        svg.contains("4%"),
+        "Should render 4% label for small slice. SVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_pie_chart_uses_theme_colors() {
+    // Verify pie chart uses theme colors instead of hardcoded values
+    let input = r#"pie title Themed Pie
+    "A" : 50
+    "B" : 50"#;
+
+    let diagram = parse(input).expect("Failed to parse pie chart");
+
+    // Test with forest theme which has distinctive green colors
+    let config = RenderConfig {
+        theme: Theme::forest(),
+        ..Default::default()
+    };
+    let svg = render_with_config(&diagram, &config).expect("Failed to render with forest theme");
+
+    // Forest theme pie colors include #cde498, #cdffb2
+    assert!(
+        svg.contains("#cde498") || svg.contains("#cdffb2"),
+        "Pie chart should use forest theme colors. SVG:\n{}",
+        &svg[..1000.min(svg.len())]
+    );
+
+    // Test with default theme
+    let default_svg = render(&diagram).expect("Failed to render with default theme");
+
+    // Default theme uses different colors (#ECECFF, #ffffde)
+    assert!(
+        default_svg.contains("#ECECFF") || default_svg.contains("#ffffde"),
+        "Pie chart should use default theme colors. SVG:\n{}",
+        &default_svg[..1000.min(default_svg.len())]
+    );
+}
+
+#[test]
+fn test_flowchart_edge_stroke_width() {
+    // mermaid.js uses stroke-width: 1px for normal edges, not 2px
+    let input = r#"flowchart LR
+    A --> B"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Edge paths should use stroke-width of 1, and CSS should specify 1px
+    // (Note: markers like cross may still use stroke-width: 2 for their internal paths)
+    assert!(
+        svg.contains("stroke-width: 1px") || svg.contains("stroke-width=\"1\""),
+        "Edge stroke-width should be 1px. SVG:\n{}",
+        svg
+    );
+
+    // The edge path element specifically should have stroke-width 1
+    assert!(
+        svg.contains(r#"class="edge-path""#)
+            && (svg.contains("stroke-width=\"1\"") || svg.contains("stroke-width: 1px")),
+        "Edge path should have stroke-width 1. SVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_flowchart_arrow_marker_size() {
+    // mermaid.js uses markerWidth=8, markerHeight=8 for point markers
+    let input = r#"flowchart LR
+    A --> B"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Arrow point markers should be 8x8, not 12x12
+    assert!(
+        svg.contains("markerWidth=\"8\"") || svg.contains("markerWidth: 8"),
+        "Arrow markers should be 8x8. SVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_flowchart_subroutine_uses_polygon() {
+    // Subroutine shape is rendered as a polygon (matching mermaid.js)
+    // The polygon traces inner rect → outer rect to create vertical bar effect
+    let input = r#"flowchart LR
+    A[[Subroutine]]"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Should use polygon element (not separate rect + lines)
+    assert!(
+        svg.contains("<polygon"),
+        "Subroutine should use polygon element. SVG:\n{}",
+        svg
+    );
+
+    // The polygon should have points for both inner and outer rectangles
+    let points_re = regex::Regex::new(r#"<polygon points="([^"]+)""#).unwrap();
+    if let Some(caps) = points_re.captures(&svg) {
+        let points = caps.get(1).unwrap().as_str();
+        let point_count = points.split_whitespace().count();
+        // Should have 10 points for subroutine shape (inner rect 5 + outer rect 5)
+        assert!(
+            point_count >= 8,
+            "Subroutine polygon should have at least 8 points (got {}). Points: {}",
+            point_count,
+            points
+        );
+    } else {
+        panic!(
+            "Subroutine should have polygon with points attribute. SVG:\n{}",
+            svg
+        );
+    }
+}
+
+#[test]
+fn test_flowchart_has_circle_markers() {
+    // mermaid.js defines circleStart and circleEnd markers for o-o edge types
+    // These use circle elements within marker definitions
+    let input = r#"flowchart LR
+    A o--o B"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Count circle elements - should have circles for circleStart and circleEnd markers
+    let circle_count = svg.matches("<circle").count();
+    assert!(
+        circle_count >= 2,
+        "Flowchart with o--o edge should have at least 2 circles (for circleStart and circleEnd markers). Found {} circles. SVG:\n{}",
+        circle_count, svg
+    );
+
+    // Verify marker definitions exist
+    assert!(
+        svg.contains("marker") && svg.contains("circle"),
+        "Flowchart should have circle markers defined. SVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_er_diagram_has_crow_foot_notation() {
+    // ER diagrams should render crow's foot cardinality symbols using SVG markers
+    let input = r#"erDiagram
+    CUSTOMER ||--o{ ORDER : places"#;
+
+    let diagram = parse(input).expect("Failed to parse ER diagram");
+    let svg = render(&diagram).expect("Failed to render ER diagram");
+
+    // Should have marker definitions for ER cardinality symbols
+    assert!(
+        svg.contains("er-onlyOne") || svg.contains("er-zeroOrMore"),
+        "ER diagram should have cardinality marker definitions. SVG:\n{}",
+        svg
+    );
+
+    // The ZeroOrMore cardinality (o{) marker should include a circle
+    assert!(
+        svg.contains("<circle"),
+        "ER diagram ZeroOrMore cardinality marker should include a circle. SVG:\n{}",
+        svg
+    );
+
+    // Relationship lines should use marker-start and marker-end attributes
+    assert!(
+        svg.contains("marker-start") && svg.contains("marker-end"),
+        "ER diagram relationship paths should use marker-start and marker-end. SVG:\n{}",
+        svg
+    );
+
+    // Paths should reference ER markers
+    assert!(
+        svg.contains("url(#er-"),
+        "ER diagram paths should reference ER marker definitions. SVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_gantt_task_labels_inside_bars() {
+    // Gantt chart task labels should be rendered inside the task bars
+    let input = r#"gantt
+    title Test Gantt
+    dateFormat YYYY-MM-DD
+    section Phase1
+    Task A :a1, 2024-01-01, 7d"#;
+
+    let diagram = parse(input).expect("Failed to parse Gantt chart");
+    let svg = render(&diagram).expect("Failed to render Gantt chart");
+
+    // Task bar should be rendered (mermaid uses "task task0" etc.)
+    assert!(
+        svg.contains("task task") || svg.contains("task-bar"),
+        "Gantt chart should have task bars"
+    );
+
+    // Task label should have class that indicates it's inside the bar (mermaid.js uses taskText)
+    assert!(
+        svg.contains("taskText")
+            || svg.contains("task-label-inside")
+            || svg.contains(r#"class="task-label""#),
+        "Gantt chart should have task labels"
+    );
+
+    // The task name should appear in the SVG
+    assert!(
+        svg.contains("Task A"),
+        "Gantt chart should contain the task name 'Task A'"
+    );
+}
+
+#[test]
+fn test_gantt_task_bar_uses_mermaid_colors() {
+    // Issue: selkie-055 - Gantt task bars should use mermaid.js default purple (#8a90dd)
+    // mermaid.js uses #8a90dd fill with #534fbc stroke for task bars
+    let input = r#"gantt
+    title Test
+    dateFormat YYYY-MM-DD
+    section S1
+    Task :a1, 2024-01-01, 3d"#;
+
+    let diagram = parse(input).expect("Failed to parse Gantt chart");
+    let svg = render(&diagram).expect("Failed to render Gantt chart");
+
+    // Task bar should use mermaid.js default purple color
+    assert!(
+        svg.contains("fill=\"#8a90dd\"")
+            || svg.contains("fill: #8a90dd")
+            || svg.contains("fill=\"#8A90DD\""),
+        "Gantt task bars should use mermaid.js purple (#8a90dd), not light blue. SVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_gantt_has_vertical_grid_lines() {
+    // Issue: selkie-yn3 - Gantt chart should have vertical grid lines
+    let input = r#"gantt
+    title Test
+    dateFormat YYYY-MM-DD
+    section S1
+    Task :a1, 2024-01-01, 7d"#;
+
+    let diagram = parse(input).expect("Failed to parse Gantt chart");
+    let svg = render(&diagram).expect("Failed to render Gantt chart");
+
+    // Should have vertical grid lines (multiple vertical lines in the chart area)
+    // mermaid.js renders these with class="grid" containing tick marks
+    assert!(
+        svg.contains("grid") || svg.contains("tick"),
+        "Gantt chart should have vertical grid lines. SVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_pie_chart_has_outer_circle() {
+    // Issue: selkie-vsx - Pie chart should have outer circle like mermaid.js
+    let input = r#"pie
+    "A" : 50
+    "B" : 50"#;
+
+    let diagram = parse(input).expect("Failed to parse pie chart");
+    let svg = render(&diagram).expect("Failed to render pie chart");
+
+    // mermaid.js renders a pieOuterCircle around the pie
+    // This is a circle with no fill, just a stroke around the pie
+    assert!(
+        svg.contains("pieOuterCircle")
+            || svg.contains("pie-outer")
+            || (svg.contains("<circle") && svg.contains("fill=\"none\"")),
+        "Pie chart should have an outer circle. SVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_diamond_edges_exit_from_sides_not_corners() {
+    // Issue: Edges from diamond decision nodes should exit from the sides
+    // (top, bottom, left, right vertices) based on target position, not from corners
+    let input = r#"flowchart TB
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Below]
+    B -->|No| D[Side]"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Parse the SVG to extract edge paths
+    // Diamond edges should have different exit points based on target position
+    // Edge B->C should exit from bottom (same x as diamond center)
+    // Edge B->D should exit from side (different x than diamond center)
+
+    // Find edge paths that start from the decision diamond
+    // We need to verify edges start from diamond sides, not corners
+    // Diamond has vertices at top/bottom/left/right of bounding box
+
+    // A robust test: edges from a diamond with multiple targets should
+    // have start points that differ in their relative positions
+    assert!(svg.contains("<path"), "SVG should contain edge paths");
+
+    // The test will be more specific once we fix the implementation
+    // For now, verify the diamond is rendered correctly
+    assert!(
+        svg.contains("<polygon"),
+        "Diamond should be rendered as polygon"
+    );
+}
+
+#[test]
+fn test_parallelogram_renders_as_polygon() {
+    let input = r#"flowchart LR
+    A[/Parallelogram/]"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Parallelogram (LeanRight) should render as a polygon, not a rect
+    assert!(
+        svg.contains("<polygon"),
+        "Parallelogram should render as polygon, got:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_class_inheritance_arrow_is_hollow_triangle() {
+    // Issue selkie-cq5: Inheritance arrows should be hollow triangular heads
+    // <|-- means "extends" and the triangle points to the parent (left side)
+    let input = r#"classDiagram
+    Animal <|-- Dog
+    Animal : +String name"#;
+
+    let diagram = parse(input).expect("Failed to parse class diagram");
+    let svg = render(&diagram).expect("Failed to render class diagram");
+
+    // Inheritance relation should use a marker
+    let has_inheritance_marker =
+        svg.contains("url(#inheritance-start)") || svg.contains("url(#inheritance-end)");
+    assert!(
+        has_inheritance_marker,
+        "Inheritance relation should use inheritance marker"
+    );
+
+    // The inheritance marker should exist and be hollow (fill="none")
+    let has_inheritance_def =
+        svg.contains(r#"id="inheritance-start""#) || svg.contains(r#"id="inheritance-end""#);
+    assert!(
+        has_inheritance_def,
+        "SVG should contain inheritance marker definition"
+    );
+
+    // The marker path should be hollow (fill="none" or light background fill, not filled with stroke color)
+    // Extract the marker section and verify it's not a solid filled triangle
+    if let Some(marker_start) = svg
+        .find(r#"id="inheritance-start""#)
+        .or_else(|| svg.find(r#"id="inheritance-end""#))
+    {
+        let marker_end = svg[marker_start..].find("</marker>").unwrap_or(200);
+        let marker_section = &svg[marker_start..marker_start + marker_end];
+        // Hollow can be fill="none" OR fill with a light color like #ECECFF or #FFFFFF
+        let is_hollow = marker_section.contains("fill=\"none\"")
+            || marker_section.contains("fill=\"#ECECFF\"")
+            || marker_section.contains("fill=\"#FFFFFF\"")
+            || marker_section.contains("fill=\"white\"");
+        // Should NOT be filled with the stroke/dark color
+        let is_solid = marker_section.contains("fill=\"#333333\"")
+            || marker_section.contains("fill=\"black\"");
+        assert!(
+            is_hollow && !is_solid,
+            "Inheritance marker should be hollow (not filled with stroke color). Got marker section:\n{}",
+            marker_section
+        );
+    }
+}
+
+#[test]
+fn test_flowchart_tb_layout_vertical_ordering() {
+    // Issue selkie-agi: In TB (top-to-bottom) layout, nodes should be laid out
+    // vertically with the first node at the top.
+    // A -> B -> C should result in A at top, B in middle, C at bottom
+    let input = r#"flowchart TB
+    A[First] --> B[Second]
+    B --> C[Third]"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Extract y-coordinates for each node from the SVG
+    // Nodes are rendered as <g class="node" id="node-X">...<rect x="..." y="Y">...
+    let extract_node_y = |svg: &str, node_id: &str| -> Option<f64> {
+        // Find the node group
+        let node_marker = format!(r#"id="node-{}""#, node_id);
+        let node_start = svg.find(&node_marker)?;
+        let node_section = &svg[node_start..];
+
+        // Find the rect element within this node (ends at next </g>)
+        let node_end = node_section.find("</g>")?;
+        let node_section = &node_section[..node_end];
+
+        // Extract y from rect y="..." or polygon points="..."
+        // For rect: y="..."
+        if let Some(y_start) = node_section.find(r#" y=""#) {
+            let y_value_start = y_start + 4; // skip ` y="`
+            let remaining = &node_section[y_value_start..];
+            let y_end = remaining.find('"')?;
+            let y_str = &remaining[..y_end];
+            return y_str.parse().ok();
+        }
+
+        // For polygon (diamond): points="x1,y1 x2,y2 ..."
+        // Take the first y value from points
+        if let Some(points_start) = node_section.find(r#"points=""#) {
+            let points_value_start = points_start + 8; // skip `points="`
+            let remaining = &node_section[points_value_start..];
+            let points_end = remaining.find('"')?;
+            let points_str = &remaining[..points_end];
+            // Parse "x1,y1 x2,y2 ..." - take first point
+            let first_point = points_str.split_whitespace().next()?;
+            let coords: Vec<&str> = first_point.split(',').collect();
+            if coords.len() >= 2 {
+                return coords[1].parse().ok();
+            }
+        }
+
+        None
+    };
+
+    let y_a = extract_node_y(&svg, "A").expect("Should find node A y-coordinate");
+    let y_b = extract_node_y(&svg, "B").expect("Should find node B y-coordinate");
+    let y_c = extract_node_y(&svg, "C").expect("Should find node C y-coordinate");
+
+    // In TB layout: A should be above B, B should be above C
+    // "Above" means smaller y value
+    assert!(
+        y_a < y_b,
+        "In TB layout, A should be above B (A.y={} should be < B.y={}). SVG:\n{}",
+        y_a,
+        y_b,
+        svg
+    );
+    assert!(
+        y_b < y_c,
+        "In TB layout, B should be above C (B.y={} should be < C.y={}). SVG:\n{}",
+        y_b,
+        y_c,
+        svg
+    );
+}
+
+#[test]
+fn test_flowchart_tb_layout_with_diamond_ordering() {
+    // Issue selkie-agi: In TB layout with a diamond decision node,
+    // the diamond should appear BELOW the node pointing to it, not above.
+    // This mirrors the issue in flowchart_full where C (Diamond Decision)
+    // appears above A (Rectangle) when it should be below A and B.
+    //
+    // Expected layout:
+    //     A (Rectangle)
+    //         |
+    //     B (Rounded)
+    //         |
+    //     C (Diamond)
+    //       /   \
+    //      D     E
+    //       \   /
+    //        F
+    let input = r#"flowchart TB
+    A[Rectangle] --> B(Rounded)
+    B --> C{Diamond Decision}
+    C -->|Yes| D([Stadium])
+    C -->|No| E[[Subroutine]]
+    D --> F[(Cylinder)]
+    E --> F"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Extract CENTER y-coordinates for each node from the SVG
+    // Important: Different shapes store y differently:
+    // - rect: y is top-left, so center = y + height/2
+    // - polygon (diamond): vertices form a rotated square, center = (min_y + max_y)/2
+    // - circle: cy is already the center
+    // - path (cylinder): use text y which is centered
+    let extract_node_center_y = |svg: &str, node_id: &str| -> Option<f64> {
+        let node_marker = format!(r#"id="node-{}""#, node_id);
+        let node_start = svg.find(&node_marker)?;
+        let node_section = &svg[node_start..];
+        let node_end = node_section.find("</g>")?;
+        let node_section = &node_section[..node_end];
+
+        // For rect: y="..." height="..." -> center = y + height/2
+        if let Some(y_start) = node_section.find(r#" y=""#) {
+            let y_value_start = y_start + 4;
+            let remaining = &node_section[y_value_start..];
+            let y_end = remaining.find('"')?;
+            let y_str = &remaining[..y_end];
+            let y: f64 = y_str.parse().ok()?;
+
+            if let Some(h_start) = node_section.find(r#" height=""#) {
+                let h_value_start = h_start + 9;
+                let remaining = &node_section[h_value_start..];
+                let h_end = remaining.find('"')?;
+                let h_str = &remaining[..h_end];
+                let h: f64 = h_str.parse().ok()?;
+                return Some(y + h / 2.0);
+            }
+            return Some(y);
+        }
+
+        // For polygon (diamond): find min/max y to compute center
+        if let Some(points_start) = node_section.find(r#"points=""#) {
+            let points_value_start = points_start + 8;
+            let remaining = &node_section[points_value_start..];
+            let points_end = remaining.find('"')?;
+            let points_str = &remaining[..points_end];
+
+            let mut min_y = f64::MAX;
+            let mut max_y = f64::MIN;
+            for point in points_str.split_whitespace() {
+                let coords: Vec<&str> = point.split(',').collect();
+                if coords.len() >= 2 {
+                    if let Ok(y) = coords[1].parse::<f64>() {
+                        min_y = min_y.min(y);
+                        max_y = max_y.max(y);
+                    }
+                }
+            }
+            if min_y != f64::MAX {
+                return Some((min_y + max_y) / 2.0);
+            }
+        }
+
+        // For path (cylinder) or other shapes: use text y as center
+        if let Some(text_start) = node_section.find("<text") {
+            let text_section = &node_section[text_start..];
+            if let Some(y_start) = text_section.find(r#" y=""#) {
+                let y_value_start = y_start + 4;
+                let remaining = &text_section[y_value_start..];
+                let y_end = remaining.find('"')?;
+                let y_str = &remaining[..y_end];
+                return y_str.parse().ok();
+            }
+        }
+
+        // For circle: cy is the center
+        if let Some(cy_start) = node_section.find(r#" cy=""#) {
+            let cy_value_start = cy_start + 5;
+            let remaining = &node_section[cy_value_start..];
+            let cy_end = remaining.find('"')?;
+            let cy_str = &remaining[..cy_end];
+            return cy_str.parse().ok();
+        }
+
+        None
+    };
+
+    let y_a = extract_node_center_y(&svg, "A").expect("Should find node A");
+    let y_b = extract_node_center_y(&svg, "B").expect("Should find node B");
+    let y_c = extract_node_center_y(&svg, "C").expect("Should find node C");
+    let y_d = extract_node_center_y(&svg, "D").expect("Should find node D");
+    let y_e = extract_node_center_y(&svg, "E").expect("Should find node E");
+    let y_f = extract_node_center_y(&svg, "F").expect("Should find node F");
+
+    eprintln!("Node CENTER y-coordinates:");
+    eprintln!("  A (Rectangle): {}", y_a);
+    eprintln!("  B (Rounded): {}", y_b);
+    eprintln!("  C (Diamond): {}", y_c);
+    eprintln!("  D (Stadium): {}", y_d);
+    eprintln!("  E (Subroutine): {}", y_e);
+    eprintln!("  F (Cylinder): {}", y_f);
+
+    // The vertical order should be: A -> B -> C -> D,E -> F
+    // All comparisons use center y-coordinates now
+    assert!(y_a < y_b, "A should be above B: A.y={} < B.y={}", y_a, y_b);
+    assert!(y_b < y_c, "B should be above C: B.y={} < C.y={}", y_b, y_c);
+    assert!(y_c < y_d, "C should be above D: C.y={} < D.y={}", y_c, y_d);
+    assert!(y_c < y_e, "C should be above E: C.y={} < E.y={}", y_c, y_e);
+
+    // D and E should be on approximately the same level
+    assert!(
+        (y_d - y_e).abs() < 20.0,
+        "D and E should be on same level: D.y={}, E.y={}",
+        y_d,
+        y_e
+    );
+
+    // F should be below D and E
+    assert!(y_d < y_f, "D should be above F: D.y={} < F.y={}", y_d, y_f);
+    assert!(y_e < y_f, "E should be above F: E.y={} < F.y={}", y_e, y_f);
+}
+
+#[test]
+fn test_flowchart_tb_subgraph_internal_layout() {
+    // Issue selkie-agi: When a flowchart has subgraphs, nodes within
+    // a subgraph should still follow the TB layout direction.
+    // In flowchart_full, the "Main Flow" subgraph has nodes that should
+    // be laid out vertically, but they appear horizontally.
+    let input = r#"flowchart TB
+    subgraph main [Main Flow]
+        A[Rectangle] --> B(Rounded)
+        B --> C{Diamond Decision}
+        C -->|Yes| D([Stadium])
+        C -->|No| E[[Subroutine]]
+        D --> F[(Cylinder DB)]
+        E --> F
+    end
+    subgraph shapes [All Shapes]
+        G((Circle)) --> H
+    end
+    F --> G"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart with subgraphs");
+    let svg = render(&diagram).expect("Failed to render flowchart with subgraphs");
+
+    // Extract y-coordinates for each node from the SVG
+    let extract_node_y = |svg: &str, node_id: &str| -> Option<f64> {
+        let node_marker = format!(r#"id="node-{}""#, node_id);
+        let node_start = svg.find(&node_marker)?;
+        let node_section = &svg[node_start..];
+        let node_end = node_section.find("</g>")?;
+        let node_section = &node_section[..node_end];
+
+        // For rect: y="..."
+        if let Some(y_start) = node_section.find(r#" y=""#) {
+            let y_value_start = y_start + 4;
+            let remaining = &node_section[y_value_start..];
+            let y_end = remaining.find('"')?;
+            let y_str = &remaining[..y_end];
+            return y_str.parse().ok();
+        }
+
+        // For polygon (diamond): points="x1,y1 x2,y2 ..."
+        if let Some(points_start) = node_section.find(r#"points=""#) {
+            let points_value_start = points_start + 8;
+            let remaining = &node_section[points_value_start..];
+            let points_end = remaining.find('"')?;
+            let points_str = &remaining[..points_end];
+            let first_point = points_str.split_whitespace().next()?;
+            let coords: Vec<&str> = first_point.split(',').collect();
+            if coords.len() >= 2 {
+                return coords[1].parse().ok();
+            }
+        }
+
+        // For path (cylinder): check for path with specific pattern
+        if let Some(path_start) = node_section.find(r#"<path d=""#) {
+            let path_section = &node_section[path_start..];
+            if let Some(m_pos) = path_section.find("M ") {
+                let coords_start = m_pos + 2;
+                let remaining = &path_section[coords_start..];
+                let parts: Vec<&str> = remaining.split_whitespace().take(2).collect();
+                if parts.len() >= 2 {
+                    return parts[1].parse().ok();
+                }
+            }
+        }
+
+        // For circle
+        if let Some(cy_start) = node_section.find(r#" cy=""#) {
+            let cy_value_start = cy_start + 5;
+            let remaining = &node_section[cy_value_start..];
+            let cy_end = remaining.find('"')?;
+            let cy_str = &remaining[..cy_end];
+            return cy_str.parse().ok();
+        }
+
+        None
+    };
+
+    let y_a = extract_node_y(&svg, "A").expect("Should find node A y-coordinate");
+    let y_b = extract_node_y(&svg, "B").expect("Should find node B y-coordinate");
+    let y_c = extract_node_y(&svg, "C").expect("Should find node C y-coordinate");
+
+    eprintln!("Node y-coordinates in subgraph:");
+    eprintln!("  A (Rectangle): {}", y_a);
+    eprintln!("  B (Rounded): {}", y_b);
+    eprintln!("  C (Diamond): {}", y_c);
+
+    // Within the Main Flow subgraph, nodes should still follow TB ordering:
+    // A should be above B, B should be above C (diamond)
+    assert!(
+        y_a < y_c,
+        "Within subgraph, A should be above C (Diamond): A.y={} should be < C.y={}. \
+        This is selkie-agi: nodes in subgraph not respecting TB direction.",
+        y_a,
+        y_c
+    );
+
+    assert!(y_a < y_b, "A should be above B: A.y={} < B.y={}", y_a, y_b);
+    assert!(y_b < y_c, "B should be above C: B.y={} < C.y={}", y_b, y_c);
+}
+
+#[test]
+fn test_flowchart_full_tb_layout() {
+    // Issue selkie-agi: This is the exact flowchart_full input that shows
+    // incorrect layout - C (Diamond) appears above A (Rectangle) instead of below.
+    let input = r#"flowchart TB
+    subgraph main [Main Flow]
+        A[Rectangle] --> B(Rounded)
+        B --> C{Diamond Decision}
+        C -->|Yes| D([Stadium])
+        C -->|No| E[[Subroutine]]
+        D --> F[(Cylinder DB)]
+        E --> F
+    end
+    subgraph shapes [All Shapes]
+        G((Circle)) --> H>Asymmetric]
+        H --> I[/Parallelogram/]
+        I --> J[\Reverse Para\]
+        J --> K[/Trapezoid\]
+        K --> L[\Inv Trapezoid/]
+        L --> M{{Hexagon}}
+        M --> N(((Double Circle)))
+    end
+    subgraph edges [Edge Types]
+        O --> P
+        O --- Q
+        O -.- R
+        O -.-> S
+        O ==> T
+        O <--> U
+        O x--x V
+        O o--o W
+    end
+    F --> G
+    N --> O"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart_full");
+    let svg = render(&diagram).expect("Failed to render flowchart_full");
+
+    // Extract y-coordinates for each node from the SVG
+    let extract_node_y = |svg: &str, node_id: &str| -> Option<f64> {
+        let node_marker = format!(r#"id="node-{}""#, node_id);
+        let node_start = svg.find(&node_marker)?;
+        let node_section = &svg[node_start..];
+        let node_end = node_section.find("</g>")?;
+        let node_section = &node_section[..node_end];
+
+        // For rect: y="..."
+        if let Some(y_start) = node_section.find(r#" y=""#) {
+            let y_value_start = y_start + 4;
+            let remaining = &node_section[y_value_start..];
+            let y_end = remaining.find('"')?;
+            let y_str = &remaining[..y_end];
+            return y_str.parse().ok();
+        }
+
+        // For polygon (diamond): points="x1,y1 x2,y2 ..."
+        // Diamond's first point is the TOP vertex, so that's the minimum y
+        if let Some(points_start) = node_section.find(r#"points=""#) {
+            let points_value_start = points_start + 8;
+            let remaining = &node_section[points_value_start..];
+            let points_end = remaining.find('"')?;
+            let points_str = &remaining[..points_end];
+            let first_point = points_str.split_whitespace().next()?;
+            let coords: Vec<&str> = first_point.split(',').collect();
+            if coords.len() >= 2 {
+                return coords[1].parse().ok();
+            }
+        }
+
+        // For path (cylinder): check for path with specific pattern
+        if let Some(path_start) = node_section.find(r#"<path d=""#) {
+            let path_section = &node_section[path_start..];
+            if let Some(m_pos) = path_section.find("M ") {
+                let coords_start = m_pos + 2;
+                let remaining = &path_section[coords_start..];
+                let parts: Vec<&str> = remaining.split_whitespace().take(2).collect();
+                if parts.len() >= 2 {
+                    return parts[1].parse().ok();
+                }
+            }
+        }
+
+        // For circle
+        if let Some(cy_start) = node_section.find(r#" cy=""#) {
+            let cy_value_start = cy_start + 5;
+            let remaining = &node_section[cy_value_start..];
+            let cy_end = remaining.find('"')?;
+            let cy_str = &remaining[..cy_end];
+            return cy_str.parse().ok();
+        }
+
+        None
+    };
+
+    let y_a = extract_node_y(&svg, "A").expect("Should find node A");
+    let y_c = extract_node_y(&svg, "C").expect("Should find node C");
+
+    eprintln!("flowchart_full node y-coordinates:");
+    eprintln!("  A (Rectangle): {}", y_a);
+    eprintln!("  C (Diamond): {}", y_c);
+
+    // THE CRITICAL BUG: In the broken version, C.y < A.y (C is above A)
+    // In the fixed version, A.y < C.y (A is above C, which is correct for A --> B --> C)
+    assert!(
+        y_a < y_c,
+        "BUG selkie-agi: In flowchart_full, A (Rectangle) should be ABOVE C (Diamond). \
+        Instead, C is at y={} and A is at y={}. The Diamond Decision is being placed \
+        above the Rectangle when it should be below it.",
+        y_c,
+        y_a
+    );
+}
+
+#[test]
+fn test_state_diagram_tb_centered_alignment() {
+    // In TB layout, all states should be horizontally centered (similar x coordinates)
+    // Mermaid.js places all states in a single vertical column
+    let input = r#"stateDiagram-v2
+    [*] --> Idle
+    Idle --> Running : start
+    Running --> Idle : stop
+    Running --> Error : error
+    Error --> Idle : reset
+    Error --> [*]"#;
+
+    let diagram = parse(input).expect("Failed to parse state diagram");
+    let svg = render(&diagram).expect("Failed to render state diagram");
+
+    // Extract x-coordinates for each state
+    let extract_state_x = |svg: &str, state_id: &str| -> Option<f64> {
+        let state_marker = format!(r#"id="state-{}""#, state_id);
+        let state_start = svg.find(&state_marker)?;
+        let state_section = &svg[state_start..];
+        let state_end = state_section.find("</g>")?;
+        let state_section = &state_section[..state_end];
+
+        // For rect: x="..."
+        if let Some(x_start) = state_section.find(r#" x=""#) {
+            let x_value_start = x_start + 4;
+            let remaining = &state_section[x_value_start..];
+            let x_end = remaining.find('"')?;
+            let x_str = &remaining[..x_end];
+            if let Ok(x) = x_str.parse::<f64>() {
+                // Get width to calculate center
+                if let Some(w_start) = state_section.find(r#" width=""#) {
+                    let w_value_start = w_start + 8;
+                    let remaining = &state_section[w_value_start..];
+                    let w_end = remaining.find('"')?;
+                    let w_str = &remaining[..w_end];
+                    if let Ok(w) = w_str.parse::<f64>() {
+                        return Some(x + w / 2.0);
+                    }
+                }
+                return Some(x);
+            }
+        }
+
+        // For circle (start/end states): cx="..."
+        if let Some(cx_start) = state_section.find(r#" cx=""#) {
+            let cx_value_start = cx_start + 5;
+            let remaining = &state_section[cx_value_start..];
+            let cx_end = remaining.find('"')?;
+            let cx_str = &remaining[..cx_end];
+            return cx_str.parse().ok();
+        }
+
+        None
+    };
+
+    // Get center x-coordinates
+    let x_idle = extract_state_x(&svg, "Idle").expect("Should find Idle state");
+    let x_running = extract_state_x(&svg, "Running").expect("Should find Running state");
+    let x_error = extract_state_x(&svg, "Error").expect("Should find Error state");
+
+    eprintln!("State center x-coordinates:");
+    eprintln!("  Idle: {}", x_idle);
+    eprintln!("  Running: {}", x_running);
+    eprintln!("  Error: {}", x_error);
+
+    // In TB layout, all states should be approximately centered
+    // Back edges create dummy nodes which can cause some horizontal offset
+    // Allow 50% variance from the mean to account for this
+    let mean_x = (x_idle + x_running + x_error) / 3.0;
+    let max_deviation = mean_x * 0.5;
+
+    assert!(
+        (x_idle - mean_x).abs() < max_deviation,
+        "Idle should be near center (mean={}). Got x={}. In TB layout, states should be in a single column.",
+        mean_x, x_idle
+    );
+    assert!(
+        (x_running - mean_x).abs() < max_deviation,
+        "Running should be near center (mean={}). Got x={}. In TB layout, states should be in a single column.",
+        mean_x, x_running
+    );
+    assert!(
+        (x_error - mean_x).abs() < max_deviation,
+        "Error should be near center (mean={}). Got x={}. In TB layout, states should be in a single column.",
+        mean_x, x_error
+    );
+}
+
+#[test]
+fn test_state_diagram_vertical_layout() {
+    // State diagrams should default to vertical (top-to-bottom) layout
+    // with states positioned based on the transition flow
+    let input = r#"stateDiagram-v2
+    [*] --> Idle
+    Idle --> Running : start
+    Running --> Idle : stop
+    Running --> [*]"#;
+
+    let diagram = parse(input).expect("Failed to parse state diagram");
+    let svg = render(&diagram).expect("Failed to render state diagram");
+
+    // Extract y-coordinates for each state
+    let extract_state_y = |svg: &str, state_id: &str| -> Option<f64> {
+        // Look for state-<id> group
+        let state_marker = format!(r#"id="state-{}""#, state_id);
+        let state_start = svg.find(&state_marker)?;
+        let state_section = &svg[state_start..];
+        let state_end = state_section.find("</g>")?;
+        let state_section = &state_section[..state_end];
+
+        // For rect: y="..."
+        if let Some(y_start) = state_section.find(r#" y=""#) {
+            let y_value_start = y_start + 4;
+            let remaining = &state_section[y_value_start..];
+            let y_end = remaining.find('"')?;
+            let y_str = &remaining[..y_end];
+            return y_str.parse().ok();
+        }
+
+        // For circle (start/end states): cy="..."
+        if let Some(cy_start) = state_section.find(r#" cy=""#) {
+            let cy_value_start = cy_start + 5;
+            let remaining = &state_section[cy_value_start..];
+            let cy_end = remaining.find('"')?;
+            let cy_str = &remaining[..cy_end];
+            return cy_str.parse().ok();
+        }
+
+        None
+    };
+
+    // Get positions
+    let y_idle = extract_state_y(&svg, "Idle").expect("Should find Idle state");
+    let y_running = extract_state_y(&svg, "Running").expect("Should find Running state");
+
+    eprintln!("State y-coordinates:");
+    eprintln!("  Idle: {}", y_idle);
+    eprintln!("  Running: {}", y_running);
+
+    // In TB layout: Idle should be above Running (smaller y)
+    // because [*] --> Idle --> Running
+    assert!(
+        y_idle < y_running,
+        "In vertical layout, Idle should be above Running. Idle.y={} vs Running.y={}",
+        y_idle,
+        y_running
+    );
+
+    // Also verify the diagram is taller than it is wide (vertical orientation)
+    let width_match = svg.find(r#"width=""#).and_then(|start| {
+        let remaining = &svg[start + 7..];
+        let end = remaining.find('"')?;
+        remaining[..end].parse::<f64>().ok()
+    });
+    let height_match = svg.find(r#"height=""#).and_then(|start| {
+        let remaining = &svg[start + 8..];
+        let end = remaining.find('"')?;
+        remaining[..end].parse::<f64>().ok()
+    });
+
+    if let (Some(width), Some(height)) = (width_match, height_match) {
+        eprintln!("Diagram size: {}x{}", width, height);
+        assert!(
+            height > width * 0.8, // Allow some tolerance, but should be roughly taller
+            "State diagram should be roughly vertical. Got {}x{} (width x height)",
+            width,
+            height
+        );
+    }
+}
+
+#[test]
+fn test_state_diagram_fork_join_centered() {
+    // Fork and join bars should be centered between their parallel branches
+    let input = r#"stateDiagram-v2
+    [*] --> Active
+    state fork_state <<fork>>
+    Active --> fork_state
+    fork_state --> BranchA
+    fork_state --> BranchB
+    state join_state <<join>>
+    BranchA --> join_state
+    BranchB --> join_state
+    join_state --> Done
+    Done --> [*]"#;
+
+    let diagram = parse(input).expect("Failed to parse state diagram");
+    let svg = render(&diagram).expect("Failed to render state diagram");
+
+    // Extract center x-coordinate from a state's path or rect element
+    let extract_center_x = |svg: &str, state_id: &str| -> Option<f64> {
+        let state_marker = format!(r#"id="state-{}""#, state_id);
+        let state_start = svg.find(&state_marker)?;
+        let state_section = &svg[state_start..];
+        let state_end = state_section.find("</g>")?;
+        let state_section = &state_section[..state_end];
+
+        // For path (state boxes): d="M {x+rx} {y} H {right-rx} ..."
+        if state_section.contains("<path") && state_section.contains("state-box") {
+            let path_pattern =
+                regex::Regex::new(r#"<path[^>]*d="M ([0-9.]+) [0-9.]+ H ([0-9.]+)"#).ok()?;
+            if let Some(caps) = path_pattern.captures(state_section) {
+                let x_plus_rx: f64 = caps.get(1)?.as_str().parse().ok()?;
+                let right_minus_rx: f64 = caps.get(2)?.as_str().parse().ok()?;
+                let rx = 5.0;
+                let x = x_plus_rx - rx;
+                let w = right_minus_rx + rx - x;
+                return Some(x + w / 2.0);
+            }
+        }
+
+        // For path (fork/join bars): d="M {x+rx} {y} H {right-rx} ..."
+        if state_section.contains("<path") && state_section.contains("state-fork-join") {
+            let path_pattern =
+                regex::Regex::new(r#"<path[^>]*d="M ([0-9.]+) [0-9.]+ H ([0-9.]+)"#).ok()?;
+            if let Some(caps) = path_pattern.captures(state_section) {
+                let x_plus_rx: f64 = caps.get(1)?.as_str().parse().ok()?;
+                let right_minus_rx: f64 = caps.get(2)?.as_str().parse().ok()?;
+                let rx = 2.0; // fork/join uses rx=2.0
+                let x = x_plus_rx - rx;
+                let w = right_minus_rx + rx - x;
+                return Some(x + w / 2.0);
+            }
+        }
+
+        // For rect (fork/join bars): x="..." width="..."
+        if let Some(x_start) = state_section.find(r#" x=""#) {
+            let x_value_start = x_start + 4;
+            let remaining = &state_section[x_value_start..];
+            let x_end = remaining.find('"')?;
+            let x_str = &remaining[..x_end];
+            if let Ok(x) = x_str.parse::<f64>() {
+                if let Some(w_start) = state_section.find(r#" width=""#) {
+                    let w_value_start = w_start + 8;
+                    let remaining = &state_section[w_value_start..];
+                    let w_end = remaining.find('"')?;
+                    let w_str = &remaining[..w_end];
+                    if let Ok(w) = w_str.parse::<f64>() {
+                        return Some(x + w / 2.0);
+                    }
+                }
+            }
+        }
+        None
+    };
+
+    // Get centers
+    let branch_a_center = extract_center_x(&svg, "BranchA").expect("Should find BranchA");
+    let branch_b_center = extract_center_x(&svg, "BranchB").expect("Should find BranchB");
+    let fork_center = extract_center_x(&svg, "fork_state").expect("Should find fork_state");
+    let join_center = extract_center_x(&svg, "join_state").expect("Should find join_state");
+
+    eprintln!(
+        "Branch centers: A={}, B={}",
+        branch_a_center, branch_b_center
+    );
+    eprintln!("Fork center: {}", fork_center);
+    eprintln!("Join center: {}", join_center);
+
+    // Fork/join should be centered between the branches
+    let expected_center = (branch_a_center + branch_b_center) / 2.0;
+    let tolerance = 20.0; // Allow some positioning variance
+
+    assert!(
+        (fork_center - expected_center).abs() < tolerance,
+        "Fork should be centered between branches. Expected ~{}, got {}",
+        expected_center,
+        fork_center
+    );
+    assert!(
+        (join_center - expected_center).abs() < tolerance,
+        "Join should be centered between branches. Expected ~{}, got {}",
+        expected_center,
+        join_center
+    );
+}
+
+#[test]
+fn test_class_diagram_cardinality_labels() {
+    // Class diagram relations with cardinality should render the cardinality labels
+    // Duck "1" *-- "many" Egg : has
+    let input = r#"classDiagram
+    Duck "1" *-- "many" Egg : has"#;
+
+    let diagram = parse(input).expect("Failed to parse class diagram");
+    let svg = render(&diagram).expect("Failed to render class diagram");
+
+    // Should contain both cardinality labels
+    assert!(
+        svg.contains("1"),
+        "Class diagram should contain cardinality '1'. SVG:\n{}",
+        svg
+    );
+    assert!(
+        svg.contains("many"),
+        "Class diagram should contain cardinality 'many'. SVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_er_diagram_vertical_layout() {
+    // ER diagrams should use DAG layout with entities flowing vertically
+    // based on relationships, not a simple grid layout
+    let input = r#"erDiagram
+    CUSTOMER ||--o{ ORDER : places
+    ORDER ||--|{ LINE-ITEM : contains
+    PRODUCT ||--o{ LINE-ITEM : includes
+    CUSTOMER {
+        string name
+        string email PK
+        string address
+    }
+    ORDER {
+        int orderNumber PK
+        date orderDate
+        string status
+    }
+    PRODUCT {
+        int id PK
+        string name
+        float price
+    }"#;
+
+    let diagram = parse(input).expect("Failed to parse ER diagram");
+    let svg = render(&diagram).expect("Failed to render ER diagram");
+
+    // Extract y-coordinates for each entity
+    let extract_entity_y = |svg: &str, entity_name: &str| -> Option<f64> {
+        // Look for entity-<name> group
+        let entity_marker = format!("entity-{}", entity_name);
+        let entity_start = svg.find(&entity_marker)?;
+        let entity_section = &svg[entity_start..];
+        let entity_end = entity_section.find("</g>")?;
+        let entity_section = &entity_section[..entity_end];
+
+        // For rect: y="..."
+        if let Some(y_start) = entity_section.find(r#" y=""#) {
+            let y_value_start = y_start + 4;
+            let remaining = &entity_section[y_value_start..];
+            let y_end = remaining.find('"')?;
+            let y_str = &remaining[..y_end];
+            return y_str.parse().ok();
+        }
+
+        None
+    };
+
+    // Get positions
+    let y_customer = extract_entity_y(&svg, "CUSTOMER").expect("Should find CUSTOMER entity");
+    let y_order = extract_entity_y(&svg, "ORDER").expect("Should find ORDER entity");
+    let y_line_item = extract_entity_y(&svg, "LINE-ITEM").expect("Should find LINE-ITEM entity");
+    let y_product = extract_entity_y(&svg, "PRODUCT").expect("Should find PRODUCT entity");
+
+    eprintln!("Entity y-coordinates:");
+    eprintln!("  CUSTOMER: {}", y_customer);
+    eprintln!("  ORDER: {}", y_order);
+    eprintln!("  LINE-ITEM: {}", y_line_item);
+    eprintln!("  PRODUCT: {}", y_product);
+
+    // In vertical DAG layout based on relationships:
+    // CUSTOMER --> ORDER --> LINE-ITEM <-- PRODUCT
+    // So: CUSTOMER above ORDER, ORDER above LINE-ITEM
+    // PRODUCT should be on same level as ORDER (both connect to LINE-ITEM)
+
+    // ORDER should be below CUSTOMER (because CUSTOMER ||--o{ ORDER)
+    assert!(
+        y_customer < y_order,
+        "CUSTOMER should be above ORDER. CUSTOMER.y={} vs ORDER.y={}",
+        y_customer,
+        y_order
+    );
+
+    // LINE-ITEM should be below ORDER (because ORDER ||--|{ LINE-ITEM)
+    assert!(
+        y_order < y_line_item,
+        "ORDER should be above LINE-ITEM. ORDER.y={} vs LINE-ITEM.y={}",
+        y_order,
+        y_line_item
+    );
+
+    // Verify the diagram is taller than a simple grid would produce
+    // Reference mermaid.js produces ~644px height vs our ~392px
+    let height_match = svg.find(r#"height=""#).and_then(|start| {
+        let remaining = &svg[start + 8..];
+        let end = remaining.find('"')?;
+        remaining[..end].parse::<f64>().ok()
+    });
+
+    if let Some(height) = height_match {
+        eprintln!("Diagram height: {}", height);
+        // Reference is 644px, our grid produces ~392px
+        // Proper vertical layout should produce at least 500px
+        assert!(
+            height >= 500.0,
+            "ER diagram should have proper vertical layout with height >= 500px. Got {}px (grid layout produces ~392px)",
+            height
+        );
+    }
+}
+
+#[test]
+fn test_class_diagram_parent_centered_over_children() {
+    // Parent class should be horizontally centered over its children
+    // Not left-aligned at the margin
+    let input = r#"classDiagram
+    Animal <|-- Duck
+    Animal <|-- Fish
+    Animal <|-- Zebra
+    Animal : +int age
+    Animal: +isMammal()"#;
+
+    let diagram = parse(input).expect("Failed to parse class diagram");
+    let svg = render(&diagram).expect("Failed to render class diagram");
+
+    // Extract x positions of class boxes
+    // Animal should be centered, not left-aligned
+    // The reference has: Animal at x=298, Duck at x=92, Fish at x=298, Zebra at x=488
+    // Children span from ~92 to ~488, so parent should be near middle (~290)
+
+    // Parse Animal's x position and width from class box path
+    let (animal_x, animal_width) =
+        extract_class_box_position(&svg, "Animal").expect("Could not find Animal class x position");
+
+    // Parse children's x positions
+    let (duck_x, duck_width) =
+        extract_class_box_position(&svg, "Duck").expect("Could not find Duck class x position");
+
+    let (zebra_x, zebra_width) =
+        extract_class_box_position(&svg, "Zebra").expect("Could not find Zebra class x position");
+
+    let animal_center = animal_x + animal_width / 2.0;
+    let duck_center = duck_x + duck_width / 2.0;
+    let zebra_center = zebra_x + zebra_width / 2.0;
+    let children_center = (duck_center + zebra_center) / 2.0;
+
+    // Animal should be centered over children (within reasonable tolerance)
+    let tolerance = 50.0;
+    assert!(
+        (animal_center - children_center).abs() < tolerance,
+        "Animal (parent) should be horizontally centered over children. \
+         Animal center={}, children center={}, diff={}. \
+         Animal x={}, Duck x={}, Zebra x={}",
+        animal_center,
+        children_center,
+        (animal_center - children_center).abs(),
+        animal_x,
+        duck_x,
+        zebra_x
+    );
+}
+
+fn extract_class_box_position(svg: &str, class_name: &str) -> Option<(f64, f64)> {
+    let id = format!(r#"id="class-{}""#, class_name);
+    let start = svg.find(&id)?;
+    let remaining = &svg[start..];
+
+    let mut scan = remaining;
+    while let Some(path_start) = scan.find("<path") {
+        let after_path = &scan[path_start..];
+        let tag_end = after_path.find("/>")?;
+        let element = &after_path[..tag_end];
+        if element.contains(r#"class="class-box-bg""#) {
+            return parse_box_path(element);
+        }
+        scan = &after_path[tag_end + 2..];
+    }
+
+    None
+}
+
+fn parse_box_path(element: &str) -> Option<(f64, f64)> {
+    let d_start = element.find(r#"d=""#)? + 3;
+    let d_end = element[d_start..].find('"')? + d_start;
+    let d = &element[d_start..d_end];
+    let mut parts = d.split_whitespace();
+    let cmd = parts.next()?;
+    if cmd != "M" {
+        return None;
+    }
+    let x1 = parts.next()?.parse::<f64>().ok()?;
+    parts.next()?; // y1
+    let h_cmd = parts.next()?;
+    if h_cmd != "H" {
+        return None;
+    }
+    let h = parts.next()?.parse::<f64>().ok()?;
+    let rx = 3.0;
+    let x = x1 - rx;
+    let width = h - x1 + 2.0 * rx;
+    Some((x, width))
+}
+
+#[test]
+fn test_gantt_uses_css_classes_not_hardcoded_colors() {
+    // Issue mermaid-rs-lg2: Gantt charts should use CSS classes for colors,
+    // not hardcoded inline fill/stroke attributes. This enables theme switching.
+    let input = r#"gantt
+    title Test
+    dateFormat YYYY-MM-DD
+    section S1
+    Task :a1, 2024-01-01, 3d"#;
+
+    let diagram = parse(input).expect("Failed to parse Gantt chart");
+    let svg = render(&diagram).expect("Failed to render Gantt chart");
+
+    // Task bars should NOT have hardcoded inline fill colors
+    // They should use CSS classes like "task" or "task-bar" that get
+    // their colors from the embedded stylesheet
+    assert!(
+        !svg.contains("fill=\"#8a90dd\""),
+        "Gantt task bars should not have hardcoded fill='#8a90dd', should use CSS class. SVG:\n{}",
+        svg
+    );
+    assert!(
+        !svg.contains("stroke=\"#534fbc\""),
+        "Gantt task bars should not have hardcoded stroke='#534fbc', should use CSS class. SVG:\n{}", svg
+    );
+}
+
+#[test]
+fn test_gantt_vert_markers_render_as_vertical_lines() {
+    // Vert markers should render as tall narrow vertical lines spanning the chart
+    let input = r#"gantt
+    title Sprint Timeline
+    dateFormat YYYY-MM-DD
+    section Planning
+    Task1 :a1, 2024-01-01, 7d
+    Task2 :a2, 2024-01-08, 7d
+    section Milestones
+    Sprint Start :vert, v1, 2024-01-01, 1d"#;
+
+    let diagram = parse(input).expect("Failed to parse Gantt chart");
+    let svg = render(&diagram).expect("Failed to render Gantt chart");
+
+    // Vert marker should have the "vert" class
+    assert!(
+        svg.contains("vert"),
+        "Vert marker should have 'vert' class. SVG:\n{}",
+        svg
+    );
+
+    // Vert marker text should have "vertText" class
+    assert!(
+        svg.contains("vertText"),
+        "Vert marker text should have 'vertText' class. SVG:\n{}",
+        svg
+    );
+}
+
+// ============================================================================
+// Directive-Based Theme Configuration Tests
+// ============================================================================
+
+#[test]
+fn test_render_text_with_dark_theme_directive() {
+    // Test that %%{init: {"theme": "dark"}}%% directive selects dark theme
+    let input = r##"%%{init: {"theme": "dark"}}%%
+flowchart LR
+    A --> B"##;
+
+    let svg = render_text(input).expect("Failed to render with directive");
+
+    // Dark theme has dark background color
+    assert!(
+        svg.contains("#1f2020"),
+        "Dark theme should have #1f2020 color"
+    );
+}
+
+#[test]
+fn test_render_text_with_forest_theme_directive() {
+    // Test that %%{init: {"theme": "forest"}}%% directive selects forest theme
+    let input = r##"%%{init: {"theme": "forest"}}%%
+flowchart LR
+    A --> B"##;
+
+    let svg = render_text(input).expect("Failed to render with directive");
+
+    // Forest theme has green colors
+    assert!(
+        svg.contains("#cde498") || svg.contains("#13540c") || svg.contains("#008000"),
+        "Forest theme should have green colors"
+    );
+}
+
+#[test]
+fn test_render_text_with_theme_variables_override() {
+    // Test that themeVariables overrides work
+    let input = r##"%%{init: {"theme": "default", "themeVariables": {"primaryColor": "#ff5500"}}}%%
+flowchart LR
+    A --> B"##;
+
+    let svg = render_text(input).expect("Failed to render with theme variables");
+
+    // Custom primary color should be used
+    assert!(
+        svg.contains("#ff5500"),
+        "Custom primaryColor should appear in SVG styles"
+    );
+}
+
+#[test]
+fn test_render_text_with_single_quotes() {
+    // Test that single quote JSON syntax works (common in mermaid.js examples)
+    let input = r#"%%{init: {'theme': 'dark'}}%%
+flowchart LR
+    A --> B"#;
+
+    let svg = render_text(input).expect("Failed to render with single quote directive");
+
+    // Dark theme colors should be present
+    assert!(
+        svg.contains("#1f2020"),
+        "Dark theme should be applied with single quote syntax"
+    );
+}
+
+#[test]
+fn test_render_text_without_directive() {
+    // Test that diagrams without directives still render correctly
+    let input = r#"flowchart LR
+    A --> B"#;
+
+    let svg = render_text(input).expect("Failed to render without directive");
+
+    // Default theme colors should be present
+    assert!(
+        svg.contains("#ECECFF") || svg.contains("#ececff"),
+        "Default theme should be used when no directive"
+    );
+}
+
+#[test]
+fn test_render_text_directive_removed_from_output() {
+    // Test that directives are stripped from final output
+    let input = r##"%%{init: {"theme": "dark"}}%%
+flowchart LR
+    A --> B"##;
+
+    let svg = render_text(input).expect("Failed to render");
+
+    // Directive should not appear in final SVG
+    assert!(
+        !svg.contains("%%{init"),
+        "Directive should be removed from output"
+    );
+}
+
+#[test]
+fn test_render_text_with_theme_css_directive() {
+    // Test that themeCSS in directive is applied
+    let input = r#"%%{init: {"themeCSS": ".node rect { rx: 15; }"}}%%
+flowchart LR
+    A --> B"#;
+
+    let svg = render_text(input).expect("Failed to render with themeCSS directive");
+
+    // Custom CSS should appear in output
+    assert!(
+        svg.contains("/* Custom CSS */"),
+        "SVG should contain custom CSS marker"
+    );
+    assert!(
+        svg.contains(".node rect { rx: 15; }"),
+        "SVG should contain custom CSS from directive"
+    );
+}
+
+// ============================================================================
+// Comprehensive Theme Tests (mermaid-rs-l27)
+// ============================================================================
+
+#[test]
+fn test_render_with_neutral_theme() {
+    let input = "flowchart TD\n    A[Start] --> B[End]";
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let config = RenderConfig {
+        theme: Theme::neutral(),
+        ..Default::default()
+    };
+    let svg = render_with_config(&diagram, &config).expect("Failed to render with neutral theme");
+
+    // Neutral theme has gray-ish colors
+    assert!(svg.contains("<svg"), "Should produce SVG output");
+    // Verify neutral theme CSS is embedded
+    assert!(
+        svg.contains("<style>"),
+        "Should contain embedded CSS styling"
+    );
+}
+
+#[test]
+fn test_flowchart_nodes_use_theme_primary_color() {
+    let input = "flowchart TD\n    A[Node A] --> B[Node B]";
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let config = RenderConfig {
+        theme: Theme::default(),
+        ..Default::default()
+    };
+    let svg = render_with_config(&diagram, &config).expect("Failed to render flowchart");
+
+    // Default theme primary color is #ECECFF - should appear in CSS
+    // Nodes should use CSS class styling, not hardcoded colors
+    assert!(
+        svg.contains("class=\"node\"") || svg.contains("class=\"default\""),
+        "Nodes should have CSS class for styling"
+    );
+    // CSS should define node styling
+    assert!(
+        svg.contains(".node") || svg.contains(".default"),
+        "CSS should define node styles"
+    );
+}
+
+#[test]
+fn test_flowchart_edges_use_theme_line_color() {
+    let input = "flowchart TD\n    A --> B";
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let config = RenderConfig {
+        theme: Theme::forest(),
+        ..Default::default()
+    };
+    let svg = render_with_config(&diagram, &config).expect("Failed to render with forest theme");
+
+    // Forest theme line color is #008000 (green)
+    assert!(
+        svg.contains("#008000") || svg.contains("class=\"edge\"") || svg.contains("stroke:"),
+        "Edges should use theme line color or CSS class"
+    );
+}
+
+#[test]
+fn test_sequence_diagram_uses_theme_colors() {
+    let input = r#"sequenceDiagram
+    participant A
+    participant B
+    A->>B: Hello"#;
+
+    let diagram = parse(input).expect("Failed to parse sequence diagram");
+    let config = RenderConfig {
+        theme: Theme::dark(),
+        ..Default::default()
+    };
+    let svg = render_with_config(&diagram, &config).expect("Failed to render with dark theme");
+
+    // Dark theme uses #1f2020 background, #cccccc text
+    assert!(svg.contains("<svg"), "Should produce SVG output");
+    // Actors should use CSS classes for theming
+    assert!(
+        svg.contains("class=\"actor\"") || svg.contains(".actor"),
+        "Actors should have CSS class styling"
+    );
+}
+
+#[test]
+fn test_sequence_open_arrow_has_no_marker() {
+    let input = r#"sequenceDiagram
+    participant A
+    participant B
+    A->B: Open
+    A->>B: Filled"#;
+
+    let diagram = parse(input).expect("Failed to parse sequence diagram");
+    let svg = render_with_config(&diagram, &RenderConfig::default())
+        .expect("Failed to render sequence diagram");
+
+    assert_eq!(
+        svg.matches("marker-end=").count(),
+        1,
+        "Only filled arrows should get marker-end"
+    );
+}
+
+#[test]
+fn test_sequence_activation_renders_box() {
+    let input = r#"sequenceDiagram
+    participant A
+    participant C
+    A->>+C: Login request
+    C-->>-A: Token"#;
+
+    let diagram = parse(input).expect("Failed to parse sequence diagram");
+    let svg = render_with_config(&diagram, &RenderConfig::default())
+        .expect("Failed to render sequence diagram");
+
+    assert!(
+        svg.contains("class=\"activation\""),
+        "Activation box should render for + activation"
+    );
+}
+
+#[test]
+fn test_sequence_loop_label_renders() {
+    let input = r#"sequenceDiagram
+    Alice->>Bob: start
+    loop Every minute
+    Alice->>Bob: ping
+    end"#;
+
+    let diagram = parse(input).expect("Failed to parse sequence diagram");
+    let svg = render_with_config(&diagram, &RenderConfig::default())
+        .expect("Failed to render sequence diagram");
+
+    assert!(svg.contains(">loop<"), "Loop label should render in SVG");
+    assert!(
+        svg.contains("[Every minute]"),
+        "Loop condition label should render in SVG"
+    );
+    assert!(
+        svg.contains("labelBox") || svg.contains("loopLine"),
+        "Loop framing should render in SVG"
+    );
+}
+
+#[test]
+fn test_sequence_loop_condition_sits_near_top_line() {
+    let input = r#"sequenceDiagram
+    Alice->>Bob: start
+    loop Daily query
+    Alice->>Bob: ping
+    end"#;
+
+    let diagram = parse(input).expect("Failed to parse sequence diagram");
+    let svg = render_with_config(&diagram, &RenderConfig::default())
+        .expect("Failed to render sequence diagram");
+
+    let label_y = svg
+        .split("<polygon")
+        .find_map(|chunk| {
+            if !chunk.contains("class=\"labelBox\"") {
+                return None;
+            }
+            let points = chunk.split("points=\"").nth(1)?.split('"').next()?;
+            let first_point = points.split_whitespace().next()?;
+            let y = first_point.split(',').nth(1)?;
+            y.parse::<f64>().ok()
+        })
+        .expect("Failed to parse label box y");
+
+    let loop_text_y = svg
+        .split("<text")
+        .find_map(|chunk| {
+            if !chunk.contains("class=\"loopText\"") {
+                return None;
+            }
+            let y = chunk.split("y=\"").nth(1)?.split('"').next()?;
+            y.parse::<f64>().ok()
+        })
+        .expect("Failed to parse loop text y");
+
+    assert!(
+        loop_text_y <= label_y + 20.0,
+        "Loop condition should sit just below the top line (label_y={}, loop_text_y={})",
+        label_y,
+        loop_text_y
+    );
+}
+
+#[test]
+fn test_sequence_fragment_uses_actor_theme_colors() {
+    let input = r#"sequenceDiagram
+    Alice->>Bob: start
+    loop Daily query
+    Alice->>Bob: ping
+    end"#;
+
+    let diagram = parse(input).expect("Failed to parse sequence diagram");
+    let theme = Theme::forest();
+    let svg = render_with_config(
+        &diagram,
+        &RenderConfig {
+            theme: theme.clone(),
+            ..Default::default()
+        },
+    )
+    .expect("Failed to render sequence diagram");
+
+    assert!(
+        svg.contains(&format!("stroke: {};", theme.actor_border)),
+        "Fragment stroke should use actor border color"
+    );
+    assert!(
+        svg.contains(&format!("fill: {};", theme.actor_bkg)),
+        "Fragment fill should use actor background color"
+    );
+}
+
+#[test]
+fn test_sequence_fragment_frames_render_behind_text() {
+    let input = r#"sequenceDiagram
+    Alice->>Bob: start
+    loop Daily query
+    Alice->>Bob: ping
+    end"#;
+
+    let diagram = parse(input).expect("Failed to parse sequence diagram");
+    let svg = render_with_config(&diagram, &RenderConfig::default())
+        .expect("Failed to render sequence diagram");
+
+    let frame_idx = svg
+        .find("class=\"loopLine\"")
+        .expect("Missing fragment frame");
+    let text_idx = svg
+        .find("class=\"loopText\"")
+        .expect("Missing fragment text");
+
+    assert!(
+        frame_idx < text_idx,
+        "Fragment frames should render before text"
+    );
+}
+
+#[test]
+fn test_sequence_loop_scopes_to_single_actor() {
+    let input = r#"sequenceDiagram
+    participant Alice
+    participant Bob
+    participant John
+    Alice->>John: Hello John, how are you?
+    loop HealthCheck
+        John->>John: Fight against hypochondria
+    end
+    John-->>Alice: Great!"#;
+
+    let diagram = parse(input).expect("Failed to parse sequence diagram");
+    let svg = render_with_config(&diagram, &RenderConfig::default())
+        .expect("Failed to render sequence diagram");
+
+    // Fragment frames use line elements (not rects) matching mermaid.js.
+    // Find the horizontal top line of the loop frame (first loopLine) and compute its width.
+    let loop_width = svg
+        .split("<line")
+        .filter_map(|chunk| {
+            if !chunk.contains("loopLine") {
+                return None;
+            }
+            let x1 = chunk
+                .split("x1=\"")
+                .nth(1)?
+                .split('"')
+                .next()?
+                .parse::<f64>()
+                .ok()?;
+            let x2 = chunk
+                .split("x2=\"")
+                .nth(1)?
+                .split('"')
+                .next()?
+                .parse::<f64>()
+                .ok()?;
+            let y1 = chunk
+                .split("y1=\"")
+                .nth(1)?
+                .split('"')
+                .next()?
+                .parse::<f64>()
+                .ok()?;
+            let y2 = chunk
+                .split("y2=\"")
+                .nth(1)?
+                .split('"')
+                .next()?
+                .parse::<f64>()
+                .ok()?;
+            // Horizontal line (y1 == y2) indicates top or bottom of frame
+            if (y1 - y2).abs() < 0.1 {
+                Some((x2 - x1).abs())
+            } else {
+                None
+            }
+        })
+        .next()
+        .expect("Failed to find loop frame horizontal line");
+
+    assert!(
+        loop_width < 300.0,
+        "Loop frame should scope to a single actor, got width {}",
+        loop_width
+    );
+}
+
+#[test]
+fn test_theme_override_appears_in_svg() {
+    // Override primary color to a distinctive red
+    let svg = render_text(
+        r##"%%{init: {"theme": "default", "themeVariables": {"primaryColor": "#ff0000"}}}%%
+flowchart TD
+    A[Red Node]"##,
+    )
+    .expect("Failed to render with theme override");
+
+    // The red color should appear in the CSS
+    assert!(
+        svg.contains("#ff0000"),
+        "Custom primaryColor should appear in SVG CSS"
+    );
+}
+
+#[test]
+fn test_all_built_in_themes_produce_valid_svg() {
+    let themes = vec![
+        ("default", Theme::default()),
+        ("dark", Theme::dark()),
+        ("forest", Theme::forest()),
+        ("neutral", Theme::neutral()),
+    ];
+
+    for (name, theme) in themes {
+        let input = "flowchart TD\n    A --> B";
+        let diagram = parse(input).expect("Failed to parse flowchart");
+        let config = RenderConfig {
+            theme,
+            ..Default::default()
+        };
+        let svg = render_with_config(&diagram, &config).expect("Failed to render");
+
+        assert!(
+            svg.contains("<svg") && svg.contains("</svg>"),
+            "{} theme should produce valid SVG",
+            name
+        );
+        assert!(
+            svg.contains("<style>") || svg.contains("<defs>"),
+            "{} theme should include styling",
+            name
+        );
+    }
+}
+
+#[test]
+fn test_theme_css_overrides_built_in_styles() {
+    // Custom CSS should come after built-in theme CSS
+    let svg = render_text(
+        r#"%%{init: {"themeCSS": ".node rect { rx: 20; ry: 20; }"}}%%
+flowchart TD
+    A[Rounded]"#,
+    )
+    .expect("Failed to render with themeCSS");
+
+    // Custom CSS should appear in output
+    assert!(svg.contains("rx: 20"), "Custom themeCSS should be applied");
+    // Custom CSS marker should indicate it comes after theme CSS
+    assert!(
+        svg.contains("/* Custom CSS */"),
+        "Custom CSS section should be marked"
+    );
+}
+
+#[test]
+fn test_invalid_theme_name_falls_back_to_default() {
+    // Using invalid theme name should fall back to default
+    let svg = render_text(
+        r#"%%{init: {"theme": "nonexistent_theme_xyz"}}%%
+flowchart TD
+    A --> B"#,
+    )
+    .expect("Failed to render with invalid theme");
+
+    // Should still produce valid SVG
+    assert!(
+        svg.contains("<svg"),
+        "Should produce SVG even with invalid theme"
+    );
+
+    // Default theme primary color #ECECFF should be present
+    assert!(
+        svg.contains("#ECECFF") || svg.contains("#ececff"),
+        "Should use default theme colors as fallback"
+    );
+}
+
+// ============================================================================
+// State Diagram Improvements
+// ============================================================================
+
+#[test]
+fn test_state_diagram_all_states_rendered() {
+    // Issue: State diagrams should render ALL states mentioned in transitions.
+    // The sample state diagram has 5 states: [*] start, Idle, Running, Error, [*] end
+    // but the Error state was missing from the rendered output.
+    let input = r#"stateDiagram-v2
+    [*] --> Idle
+    Idle --> Running : start
+    Running --> Idle : stop
+    Running --> Error : error
+    Error --> Idle : reset
+    Error --> [*]"#;
+
+    let diagram = parse(input).expect("Failed to parse state diagram");
+    let svg = render(&diagram).expect("Failed to render state diagram");
+
+    // Count state-node groups (each state should have one)
+    let state_node_count = svg.matches(r#"class="state-node""#).count();
+
+    // Verify all states are present
+    assert!(
+        svg.contains("id=\"state-Idle\""),
+        "Should contain Idle state. SVG:\n{}",
+        svg
+    );
+    assert!(
+        svg.contains("id=\"state-Running\""),
+        "Should contain Running state. SVG:\n{}",
+        svg
+    );
+    assert!(
+        svg.contains("id=\"state-Error\""),
+        "Should contain Error state. SVG:\n{}",
+        svg
+    );
+
+    // Should have at least 5 state-node groups:
+    // [*] start, Idle, Running, Error, [*] end
+    assert!(
+        state_node_count >= 5,
+        "Should have at least 5 state-node groups (start, Idle, Running, Error, end), found {}. SVG:\n{}",
+        state_node_count,
+        svg
+    );
+}
+
+#[test]
+fn test_state_diagram_uses_curved_edges() {
+    // Issue: State diagram transitions should use curved paths like mermaid.js,
+    // not straight lines. Mermaid uses cubic Bezier curves for smooth edges.
+    let input = r#"stateDiagram-v2
+    [*] --> Idle
+    Idle --> Running : start
+    Running --> Idle : stop"#;
+
+    let diagram = parse(input).expect("Failed to parse state diagram");
+    let svg = render(&diagram).expect("Failed to render state diagram");
+
+    // Mermaid.js uses <path> elements with cubic Bezier curves (C command)
+    // for transitions, not straight <line> elements.
+    // Count path elements (should be used for edges)
+    let path_count = svg.matches("<path").count();
+    let line_count = svg.matches("<line").count();
+
+    // Transitions should use path elements, not line elements
+    // (excluding marker path which is in defs)
+    let marker_path_count = svg.matches(r#"<marker"#).count();
+    let edge_path_count = path_count.saturating_sub(marker_path_count);
+
+    // We have 3 transitions, they should all use paths
+    assert!(
+        edge_path_count >= 3,
+        "State diagram should use path elements for transitions (found {} paths excluding markers), not lines (found {}). SVG:\n{}",
+        edge_path_count,
+        line_count,
+        svg
+    );
+
+    // Line elements should not be used for transitions
+    // (there might be some lines for other purposes like dividers)
+    assert!(
+        line_count == 0,
+        "State diagram should not use <line> elements for transitions (found {}). SVG:\n{}",
+        line_count,
+        svg
+    );
+}
+
+// ============================================================================
+// Layout Dimension Tests
+// ============================================================================
+
+#[test]
+#[ignore] // TODO: Fix horizontal coordinate assignment for parallel subgraphs (mermaid-rs-dod)
+fn test_flowchart_complex_layout_width() {
+    let input = std::fs::read_to_string("docs/sources/flowchart_complex.mmd")
+        .expect("Failed to read flowchart_complex.mmd");
+
+    let diagram = parse(&input).expect("Failed to parse");
+    let svg = render(&diagram).expect("Failed to render");
+
+    // Extract width from SVG viewBox or width attribute
+    let width_pattern = regex::Regex::new(r#"width="(\d+(?:\.\d+)?)""#).unwrap();
+    let width: f64 = width_pattern
+        .captures(&svg)
+        .and_then(|cap| cap.get(1))
+        .and_then(|m| m.as_str().parse().ok())
+        .expect("Could not extract width from SVG");
+
+    // Reference width is 1274px
+    // Accept within 15% tolerance (1083px minimum)
+    assert!(
+        width >= 1083.0,
+        "Flowchart width {} is too narrow (reference: 1274px, minimum: 1083px)",
+        width
+    );
+}
+
+#[test]
+fn test_flowchart_complex_emailworker_position() {
+    // Reproduces issue mermaid-rs-p2p: EmailWorker incorrectly placed inside Microservices
+    let input = std::fs::read_to_string("docs/sources/flowchart_complex.mmd")
+        .expect("Failed to read flowchart_complex.mmd");
+
+    let diagram = parse(&input).expect("Failed to parse");
+    let svg = render(&diagram).expect("Failed to render");
+
+    // Extract Queue node y position (should be in Data Layer, high y value)
+    let queue_pattern =
+        regex::Regex::new(r#"id="node-Queue"[^>]*>\s*<path[^>]*d="M [^ ]+ ([0-9.]+)"#).unwrap();
+    let queue_y: f64 = queue_pattern
+        .captures(&svg)
+        .and_then(|cap| cap.get(1))
+        .and_then(|m| m.as_str().parse().ok())
+        .expect("Could not extract Queue y position");
+
+    // Extract EmailWorker node y position
+    let email_pattern =
+        regex::Regex::new(r#"id="node-EmailWorker"[^>]*>\s*<rect[^>]*y="([0-9.]+)"#).unwrap();
+    let email_y: f64 = email_pattern
+        .captures(&svg)
+        .and_then(|cap| cap.get(1))
+        .and_then(|m| m.as_str().parse().ok())
+        .expect("Could not extract EmailWorker y position");
+
+    // Extract PaymentSvc node y position (inside Microservices)
+    let payment_pattern =
+        regex::Regex::new(r#"id="node-PaymentSvc"[^>]*>\s*<rect[^>]*y="([0-9.]+)"#).unwrap();
+    let payment_y: f64 = payment_pattern
+        .captures(&svg)
+        .and_then(|cap| cap.get(1))
+        .and_then(|m| m.as_str().parse().ok())
+        .expect("Could not extract PaymentSvc y position");
+
+    eprintln!("Node positions in flowchart_complex:");
+    eprintln!("  Queue: y={}", queue_y);
+    eprintln!("  EmailWorker: y={}", email_y);
+    eprintln!("  PaymentSvc: y={}", payment_y);
+
+    // Queue -> EmailWorker edge means EmailWorker should be BELOW Queue (higher y)
+    assert!(
+        queue_y < email_y,
+        "Queue should be above EmailWorker: Queue.y={}, EmailWorker.y={}",
+        queue_y,
+        email_y
+    );
+
+    // EmailWorker should be below PaymentSvc (it's target of Queue, which is target of NotifySvc)
+    assert!(
+        payment_y < email_y,
+        "PaymentSvc should be above EmailWorker: PaymentSvc.y={}, EmailWorker.y={}",
+        payment_y,
+        email_y
+    );
+}
+
+// ============================================================================
+// State Diagram Composite State Tests (ported from mermaid)
+// ============================================================================
+
+#[test]
+fn test_state_composite_renders_internal_states() {
+    // From mermaid: "v2 Simplest composite state"
+    // A composite state should render its internal states
+    // Note: composite detection requires internal transitions, so we use [*] --> C
+    let input = r#"stateDiagram-v2
+        state Parent {
+            [*] --> C
+        }
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse composite state diagram");
+    let svg = render(&diagram).expect("Failed to render composite state diagram");
+
+    // Should have a composite-state group for Parent
+    assert!(
+        svg.contains("composite-Parent") || svg.contains("id=\"composite-Parent\""),
+        "Should render Parent as a composite state"
+    );
+
+    // Should render the internal state C
+    assert!(
+        svg.contains("state-C") || svg.contains(">C<"),
+        "Composite state should contain internal state C"
+    );
+}
+
+#[test]
+fn test_state_nested_composites() {
+    // From mermaid: "v2 should render a state with states in it"
+    // Nested composite states should all render properly
+    // Note: composite detection requires internal transitions
+    let input = r#"stateDiagram-v2
+        state PilotCockpit {
+            [*] --> Parent
+            state Parent {
+                [*] --> C
+            }
+        }
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse nested composite diagram");
+    let svg = render(&diagram).expect("Failed to render nested composite diagram");
+
+    // Should have composite-state groups for both levels
+    assert!(
+        svg.contains("composite-PilotCockpit") || svg.contains("id=\"composite-PilotCockpit\""),
+        "Should render PilotCockpit as outer composite"
+    );
+    assert!(
+        svg.contains("composite-Parent") || svg.contains("id=\"composite-Parent\""),
+        "Should render Parent as inner composite"
+    );
+
+    // Inner state C should be rendered
+    assert!(
+        svg.contains("state-C") || svg.contains(">C<"),
+        "Nested composite should contain state C"
+    );
+}
+
+#[test]
+fn test_state_composites_horizontally_centered() {
+    // From mermaid: In TB layout, composite states should be horizontally centered
+    // This tests the state_complex.mmd pattern where Idle, Processing, and Executing
+    // should all share similar center x-coordinates
+    let input = r#"stateDiagram-v2
+        direction TB
+        [*] --> Idle
+        state Idle {
+            [*] --> Ready
+            Ready --> Active: Start Job
+        }
+        state fork_state <<fork>>
+        state join_state <<join>>
+        Idle --> fork_state
+        fork_state --> Validation
+        fork_state --> ResourceAlloc
+        Validation --> join_state
+        ResourceAlloc --> join_state
+        join_state --> Processing
+        state Processing {
+            [*] --> Validating
+            Validating --> Executing
+            state Executing {
+                [*] --> Init
+                Init --> Done
+            }
+        }
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse state_complex diagram");
+    let svg = render(&diagram).expect("Failed to render state_complex diagram");
+
+    // Extract x-coordinates for composite states
+    let extract_composite_center_x = |svg: &str, name: &str| -> Option<f64> {
+        // Look for composite-<name> and extract x and width from the outer rect
+        let composite_marker = format!("id=\"composite-{}\"", name);
+        let composite_start = svg.find(&composite_marker)?;
+        let relevant_section = &svg[composite_start..composite_start.saturating_add(500)];
+
+        // Find the rect with x and width attributes
+        let x_pattern =
+            regex::Regex::new(r#"<rect[^>]*x="([0-9.]+)"[^>]*width="([0-9.]+)""#).ok()?;
+        if let Some(caps) = x_pattern.captures(relevant_section) {
+            let x: f64 = caps.get(1)?.as_str().parse().ok()?;
+            let width: f64 = caps.get(2)?.as_str().parse().ok()?;
+            return Some(x + width / 2.0);
+        }
+        None
+    };
+
+    let idle_center_x = extract_composite_center_x(&svg, "Idle");
+    let processing_center_x = extract_composite_center_x(&svg, "Processing");
+
+    eprintln!("Composite state center x-coordinates:");
+    eprintln!("  Idle: {:?}", idle_center_x);
+    eprintln!("  Processing: {:?}", processing_center_x);
+
+    if let (Some(idle_x), Some(proc_x)) = (idle_center_x, processing_center_x) {
+        // In mermaid reference, composites are centered on same vertical axis
+        // Allow 20% tolerance of the wider composite's width
+        let tolerance = 50.0; // pixels
+        let diff = (idle_x - proc_x).abs();
+        assert!(
+            diff < tolerance,
+            "Composite states should be horizontally centered: Idle center_x={}, Processing center_x={}, diff={}",
+            idle_x, proc_x, diff
+        );
+    } else {
+        panic!(
+            "Could not extract composite center positions. SVG snippet: {}",
+            &svg[..svg.len().min(2000)]
+        );
+    }
+}
+
+#[test]
+fn test_state_composite_width_grows_with_title() {
+    // From mermaid: "v2 width of compound state should grow with title if title is wider"
+    // A composite state with a long title should expand to fit the title
+    let input = r#"stateDiagram-v2
+        state "Long state name that should make it wider" as LongTitle {
+            a --> b
+        }
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse long title composite");
+    let svg = render(&diagram).expect("Failed to render long title composite");
+
+    // Extract the composite state's width
+    let extract_composite_width = |svg: &str, name: &str| -> Option<f64> {
+        let composite_marker = format!("id=\"composite-{}\"", name);
+        let composite_start = svg.find(&composite_marker)?;
+        let relevant_section = &svg[composite_start..composite_start.saturating_add(500)];
+
+        let width_pattern = regex::Regex::new(r#"width="([0-9.]+)""#).ok()?;
+        let caps = width_pattern.captures(relevant_section)?;
+        caps.get(1)?.as_str().parse().ok()
+    };
+
+    // Also need a reference for comparison - create a short-titled composite
+    let short_input = r#"stateDiagram-v2
+        state "X" as ShortTitle {
+            a --> b
+        }
+    "#;
+
+    let short_diagram = parse(short_input).expect("Failed to parse short title composite");
+    let short_svg = render(&short_diagram).expect("Failed to render short title composite");
+
+    let long_width = extract_composite_width(&svg, "LongTitle");
+    let short_width = extract_composite_width(&short_svg, "ShortTitle");
+
+    eprintln!("Composite widths:");
+    eprintln!("  Long title: {:?}", long_width);
+    eprintln!("  Short title: {:?}", short_width);
+
+    if let (Some(long_w), Some(short_w)) = (long_width, short_width) {
+        assert!(
+            long_w > short_w,
+            "Long titled composite width ({}) should be greater than short titled ({})",
+            long_w,
+            short_w
+        );
+    }
+}
+
+#[test]
+fn test_state_composite_with_fork_join() {
+    // From mermaid: "v2 should render forks in composite states"
+    // Fork/join bars inside composite states should render properly
+    let input = r#"stateDiagram-v2
+        [*] --> TV
+        state TV {
+            state fork_state <<fork>>
+            [*] --> fork_state
+            fork_state --> State2
+            fork_state --> State3
+            state join_state <<join>>
+            State2 --> join_state
+            State3 --> join_state
+            join_state --> State4
+            State4 --> [*]
+        }
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse composite with fork/join");
+    let svg = render(&diagram).expect("Failed to render composite with fork/join");
+
+    // Should have the TV composite
+    assert!(
+        svg.contains("composite-TV") || svg.contains("id=\"composite-TV\""),
+        "Should render TV as composite state"
+    );
+
+    // Should have fork and join states inside
+    assert!(
+        svg.contains("fork_state") && svg.contains("state-fork-join"),
+        "Should render fork state inside composite. SVG: {}",
+        &svg[..svg.len().min(3000)]
+    );
+    assert!(
+        svg.contains("join_state"),
+        "Should render join state inside composite"
+    );
+
+    // Internal states should be present
+    assert!(
+        svg.contains("State2"),
+        "Should render State2 inside composite"
+    );
+    assert!(
+        svg.contains("State3"),
+        "Should render State3 inside composite"
+    );
+    assert!(
+        svg.contains("State4"),
+        "Should render State4 inside composite"
+    );
+}
+
+#[test]
+fn test_state_multiple_composites_aligned() {
+    // From mermaid: "v2 should render multiple composite states"
+    // Multiple sibling composite states should be aligned properly
+    let input = r#"stateDiagram-v2
+        [*] --> TV
+        state TV {
+            [*] --> Off
+            On --> Off : Turn off
+            Off --> On : Turn on
+        }
+        TV --> Console
+        state Console {
+            [*] --> Off2
+            On2 --> Off2 : Turn off
+            Off2 --> On2 : Turn on
+        }
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse multiple composites");
+    let svg = render(&diagram).expect("Failed to render multiple composites");
+
+    // Both composites should exist
+    assert!(
+        svg.contains("composite-TV") || svg.contains("id=\"composite-TV\""),
+        "Should render TV composite"
+    );
+    assert!(
+        svg.contains("composite-Console") || svg.contains("id=\"composite-Console\""),
+        "Should render Console composite"
+    );
+
+    // Extract y-coordinates for composites (from outer rect which comes first)
+    let extract_composite_y = |svg: &str, name: &str| -> Option<f64> {
+        let composite_marker = format!("id=\"composite-{}\"", name);
+        let composite_start = svg.find(&composite_marker)?;
+        let relevant_section = &svg[composite_start..composite_start.saturating_add(600)];
+
+        // Pre-compile regex outside the loop
+        let y_pattern = regex::Regex::new(r#"y="([0-9.]+)""#).ok()?;
+
+        // Find line containing state-composite-outer
+        for line in relevant_section.lines() {
+            if line.contains("state-composite-outer") {
+                // Extract y value from this line
+                if let Some(caps) = y_pattern.captures(line) {
+                    return caps.get(1)?.as_str().parse().ok();
+                }
+            }
+        }
+        None
+    };
+
+    let tv_y = extract_composite_y(&svg, "TV");
+    let console_y = extract_composite_y(&svg, "Console");
+
+    eprintln!("Composite y-coordinates:");
+    eprintln!("  TV: {:?}", tv_y);
+    eprintln!("  Console: {:?}", console_y);
+
+    // In TB layout, Console should be below TV (higher y value)
+    if let (Some(tv), Some(console)) = (tv_y, console_y) {
+        assert!(
+            console > tv,
+            "Console should be below TV in TB layout: TV.y={}, Console.y={}",
+            tv,
+            console
+        );
+    }
+}
+
+#[test]
+fn test_state_composite_can_transition_to_self() {
+    // From mermaid: "v2 A compound state should be able to link to itself"
+    // A composite state can have a self-loop transition
+    // Note: composite detection requires internal transitions
+    let input = r#"stateDiagram-v2
+        state Active {
+            [*] --> Idle
+        }
+        Inactive --> Idle: ACT
+        Active --> Active: LOG
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse self-loop composite");
+    let svg = render(&diagram).expect("Failed to render self-loop composite");
+
+    // Active composite should exist
+    assert!(
+        svg.contains("composite-Active") || svg.contains("id=\"composite-Active\""),
+        "Should render Active as composite"
+    );
+
+    // Should have a transition path with "LOG" label (self-loop)
+    assert!(
+        svg.contains("LOG"),
+        "Should render the LOG transition label for self-loop"
+    );
+
+    // Count transition paths - there should be at least 2 transitions
+    let transition_count = svg.matches("class=\"transition\"").count()
+        + svg.matches("class=\"transition-path\"").count();
+    assert!(
+        transition_count >= 2,
+        "Should have at least 2 transitions (ACT and LOG), found {}",
+        transition_count
+    );
+}
+
+// ============================================================================
+// State Diagram Layout Accuracy Tests (mermaid parity)
+// ============================================================================
+
+#[test]
+fn test_state_fork_parallel_order_matches_definition() {
+    // Issue: mermaid-rs-5eyk
+    // Fork edges should place targets in the order they are defined in the source.
+    // First target (Validation) should be on the LEFT in TB layout.
+    let input = r#"stateDiagram-v2
+        direction TB
+        [*] --> Start
+        state fork_state <<fork>>
+        Start --> fork_state
+        fork_state --> Validation
+        fork_state --> ResourceAlloc
+        state join_state <<join>>
+        Validation --> join_state
+        ResourceAlloc --> join_state
+        join_state --> [*]
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse fork diagram");
+    let svg = render(&diagram).expect("Failed to render fork diagram");
+
+    // Extract x-coordinates for Validation and ResourceAlloc states
+    let extract_state_center_x = |svg: &str, state_name: &str| -> Option<f64> {
+        let state_marker = format!("id=\"state-{}\"", state_name);
+        let state_start = svg.find(&state_marker)?;
+        let relevant_section = &svg[state_start..state_start.saturating_add(500)];
+
+        // Path format from rounded_rect_path: M {x+rx} {y} H {right-rx} A ...
+        // We extract: first x coord (x+rx) and right-rx (from H) to calculate center
+        let path_pattern =
+            regex::Regex::new(r#"<path[^>]*d="M ([0-9.]+) [0-9.]+ H ([0-9.]+)"#).ok()?;
+
+        for line in relevant_section.lines() {
+            if line.contains("<path") && line.contains("state-box") {
+                if let Some(caps) = path_pattern.captures(line) {
+                    let x_plus_rx: f64 = caps.get(1)?.as_str().parse().ok()?;
+                    let right_minus_rx: f64 = caps.get(2)?.as_str().parse().ok()?;
+                    let rx = 5.0;
+                    let x = x_plus_rx - rx;
+                    let w = right_minus_rx + rx - x;
+                    return Some(x + w / 2.0);
+                }
+            }
+        }
+        None
+    };
+
+    let validation_x = extract_state_center_x(&svg, "Validation");
+    let resource_x = extract_state_center_x(&svg, "ResourceAlloc");
+
+    eprintln!("Fork parallel state positions:");
+    eprintln!("  Validation center_x: {:?}", validation_x);
+    eprintln!("  ResourceAlloc center_x: {:?}", resource_x);
+
+    if let (Some(val_x), Some(res_x)) = (validation_x, resource_x) {
+        // In TB layout with fork, first defined target should be on the LEFT (smaller x)
+        // fork_state --> Validation (first, should be LEFT)
+        // fork_state --> ResourceAlloc (second, should be RIGHT)
+        assert!(
+            val_x < res_x,
+            "Validation (first fork target) should be LEFT of ResourceAlloc: Validation.x={}, ResourceAlloc.x={}",
+            val_x, res_x
+        );
+    } else {
+        panic!("Could not extract state positions from SVG. Check SVG structure.");
+    }
+}
+
+#[test]
+fn test_state_nested_composite_centered_in_parent() {
+    // Issue: mermaid-rs-n7fw
+    // Nested composite states should be horizontally centered within their parent.
+    let input = r#"stateDiagram-v2
+        direction TB
+        [*] --> Outer
+        state Outer {
+            [*] --> Inner
+            state Inner {
+                [*] --> Deep
+            }
+        }
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse nested composite");
+    let svg = render(&diagram).expect("Failed to render nested composite");
+
+    // Extract bounds for Outer and Inner composites
+    let extract_composite_bounds = |svg: &str, name: &str| -> Option<(f64, f64, f64)> {
+        let composite_marker = format!("id=\"composite-{}\"", name);
+        let composite_start = svg.find(&composite_marker)?;
+        let relevant_section = &svg[composite_start..composite_start.saturating_add(600)];
+
+        // Pre-compile regex outside the loop
+        let x_pattern = regex::Regex::new(r#"x="([0-9.]+)""#).ok()?;
+        let w_pattern = regex::Regex::new(r#"width="([0-9.]+)""#).ok()?;
+
+        for line in relevant_section.lines() {
+            if line.contains("state-composite-outer") {
+                if let (Some(x_caps), Some(w_caps)) =
+                    (x_pattern.captures(line), w_pattern.captures(line))
+                {
+                    let x: f64 = x_caps.get(1)?.as_str().parse().ok()?;
+                    let w: f64 = w_caps.get(1)?.as_str().parse().ok()?;
+                    let center = x + w / 2.0;
+                    return Some((x, w, center));
+                }
+            }
+        }
+        None
+    };
+
+    let outer_bounds = extract_composite_bounds(&svg, "Outer");
+    let inner_bounds = extract_composite_bounds(&svg, "Inner");
+
+    eprintln!("Nested composite bounds:");
+    eprintln!("  Outer: {:?}", outer_bounds);
+    eprintln!("  Inner: {:?}", inner_bounds);
+
+    if let (Some((outer_x, outer_w, outer_center)), Some((inner_x, inner_w, inner_center))) =
+        (outer_bounds, inner_bounds)
+    {
+        // Inner should be horizontally centered within Outer
+        // Check that inner's center is close to outer's center
+        let center_diff = (inner_center - outer_center).abs();
+        let tolerance = 5.0; // 5px tolerance
+
+        assert!(
+            center_diff < tolerance,
+            "Inner composite should be centered in Outer: outer_center={}, inner_center={}, diff={}",
+            outer_center, inner_center, center_diff
+        );
+
+        // Inner should have padding on both sides
+        let left_padding = inner_x - outer_x;
+        let right_padding = (outer_x + outer_w) - (inner_x + inner_w);
+        let padding_diff = (left_padding - right_padding).abs();
+
+        eprintln!(
+            "  Left padding: {}, Right padding: {}",
+            left_padding, right_padding
+        );
+
+        assert!(
+            padding_diff < tolerance * 2.0,
+            "Inner composite should have equal padding: left={}, right={}, diff={}",
+            left_padding,
+            right_padding,
+            padding_diff
+        );
+    } else {
+        panic!("Could not extract composite bounds from SVG");
+    }
+}
+
+#[test]
+fn test_state_complex_executing_centered_in_processing() {
+    // Issue: mermaid-rs-n7fw, mermaid-rs-unwc
+    // In state_complex.mmd, Executing should be centered within Processing
+    let input = std::fs::read_to_string("docs/sources/state_complex.mmd")
+        .expect("Failed to read state_complex.mmd");
+
+    let diagram = parse(&input).expect("Failed to parse state_complex");
+    let svg = render(&diagram).expect("Failed to render state_complex");
+
+    // Extract bounds for Processing and Executing composites
+    let extract_composite_bounds = |svg: &str, name: &str| -> Option<(f64, f64, f64)> {
+        let composite_marker = format!("id=\"composite-{}\"", name);
+        let composite_start = svg.find(&composite_marker)?;
+        let relevant_section = &svg[composite_start..composite_start.saturating_add(600)];
+
+        // Pre-compile regex outside the loop
+        let x_pattern = regex::Regex::new(r#"x="([0-9.]+)""#).ok()?;
+        let w_pattern = regex::Regex::new(r#"width="([0-9.]+)""#).ok()?;
+
+        for line in relevant_section.lines() {
+            if line.contains("state-composite-outer") {
+                if let (Some(x_caps), Some(w_caps)) =
+                    (x_pattern.captures(line), w_pattern.captures(line))
+                {
+                    let x: f64 = x_caps.get(1)?.as_str().parse().ok()?;
+                    let w: f64 = w_caps.get(1)?.as_str().parse().ok()?;
+                    let center = x + w / 2.0;
+                    return Some((x, w, center));
+                }
+            }
+        }
+        None
+    };
+
+    let processing_bounds = extract_composite_bounds(&svg, "Processing");
+    let executing_bounds = extract_composite_bounds(&svg, "Executing");
+
+    eprintln!("state_complex composite bounds:");
+    eprintln!("  Processing: {:?}", processing_bounds);
+    eprintln!("  Executing: {:?}", executing_bounds);
+
+    if let (Some((proc_x, proc_w, proc_center)), Some((exec_x, exec_w, exec_center))) =
+        (processing_bounds, executing_bounds)
+    {
+        // Executing should be centered within Processing
+        let center_diff = (exec_center - proc_center).abs();
+        let tolerance = 10.0; // 10px tolerance for complex diagram
+
+        assert!(
+            center_diff < tolerance,
+            "Executing should be centered in Processing: Processing.center={}, Executing.center={}, diff={}",
+            proc_center, exec_center, center_diff
+        );
+
+        // Check padding is roughly equal
+        let left_padding = exec_x - proc_x;
+        let right_padding = (proc_x + proc_w) - (exec_x + exec_w);
+
+        eprintln!(
+            "  Left padding: {}, Right padding: {}",
+            left_padding, right_padding
+        );
+
+        // Padding should be at least 15px on each side and roughly equal
+        assert!(
+            left_padding > 10.0,
+            "Executing should have left padding within Processing: left_padding={}",
+            left_padding
+        );
+        assert!(
+            right_padding > 10.0,
+            "Executing should have right padding within Processing: right_padding={}",
+            right_padding
+        );
+    } else {
+        panic!("Could not extract Processing/Executing bounds from SVG");
+    }
+}
+
+// ============================================================================
+// Mermaid reference implementation tests
+// These tests are based on mermaid's cypress/integration/rendering/stateDiagram-v2.spec.js
+// ============================================================================
+
+/// Test from mermaid: v2 should render a simple state diagrams
+#[test]
+fn test_mermaid_simple_state_diagram() {
+    let input = r#"stateDiagram-v2
+    [*] --> State1
+    State1 --> [*]
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse simple state diagram");
+    let svg = render(&diagram).expect("Failed to render simple state diagram");
+
+    // Should contain start state (filled circle with state-start class)
+    assert!(
+        svg.contains("class=\"state-start\""),
+        "Should have start state with state-start class"
+    );
+    // Should contain end state (circles with state-end-outer and state-end-inner)
+    assert!(
+        svg.contains("class=\"state-end-outer\""),
+        "Should have end state outer circle"
+    );
+    assert!(
+        svg.contains("class=\"state-end-inner\""),
+        "Should have end state inner circle"
+    );
+    assert!(svg.contains("State1"), "Should contain State1");
+    // Should have transitions (paths)
+    assert!(
+        svg.contains("transition-path"),
+        "Should have transition paths"
+    );
+}
+
+/// Test from mermaid: v2 should render state descriptions using "as" syntax
+/// Note: Currently the "as" syntax creates the state but doesn't use the display name
+#[test]
+fn test_mermaid_state_description_as_syntax() {
+    let input = r#"stateDiagram-v2
+    [*] --> S1
+    state "Some long name" as S1
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse state with 'as' syntax");
+    let svg = render(&diagram).expect("Failed to render state with 'as' syntax");
+
+    // The state should be created with id S1
+    assert!(svg.contains("state-S1"), "Should have state with id S1");
+    // TODO: The display name "Some long name" should ideally be rendered,
+    // but currently we render the state ID. This is a known limitation.
+}
+
+/// Test from mermaid: v2 should render composite states
+#[test]
+fn test_mermaid_composite_states() {
+    let input = r#"stateDiagram-v2
+    [*] --> NotShooting
+    NotShooting --> A
+    NotShooting --> B
+
+    state NotShooting {
+        [*] --> Idle
+        Idle --> Configuring : EvConfig
+        Configuring --> Idle : EvConfig
+    }
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse composite state");
+    let svg = render(&diagram).expect("Failed to render composite state");
+
+    // Should have composite state container
+    assert!(
+        svg.contains("composite-NotShooting"),
+        "Should have NotShooting composite"
+    );
+    // Composite should have outer and inner rects
+    assert!(
+        svg.contains("state-composite-outer"),
+        "Should have composite outer rect"
+    );
+    assert!(
+        svg.contains("state-composite-inner"),
+        "Should have composite inner rect"
+    );
+    // Should contain the nested states
+    assert!(svg.contains("Idle"), "Should contain Idle state");
+    assert!(
+        svg.contains("Configuring"),
+        "Should contain Configuring state"
+    );
+}
+
+/// Test from mermaid: v2 should render forks and joins
+#[test]
+fn test_mermaid_fork_join() {
+    let input = r#"stateDiagram-v2
+    state fork_state <<fork>>
+    [*] --> fork_state
+    fork_state --> State2
+    fork_state --> State3
+
+    state join_state <<join>>
+    State2 --> join_state
+    State3 --> join_state
+    join_state --> State4
+    State4 --> [*]
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse fork/join diagram");
+    let svg = render(&diagram).expect("Failed to render fork/join diagram");
+
+    // Should have fork and join states
+    assert!(
+        svg.contains("state-fork_state"),
+        "Should have fork_state node"
+    );
+    assert!(
+        svg.contains("state-join_state"),
+        "Should have join_state node"
+    );
+
+    // Fork edges should have curves (C commands in path), not just straight lines
+    // Extract paths for fork edges
+    let fork_edges: Vec<&str> = svg
+        .lines()
+        .filter(|line| line.contains("transition-path"))
+        .collect();
+
+    // At least some edges should have curve commands (C for cubic bezier)
+    let curved_edges = fork_edges
+        .iter()
+        .filter(|line| line.contains(" C "))
+        .count();
+    assert!(
+        curved_edges > 0,
+        "Fork edges should use curved paths (C commands), found {} curved out of {} total",
+        curved_edges,
+        fork_edges.len()
+    );
+}
+
+/// Test from mermaid: v2 should render multiple composite states
+#[test]
+fn test_mermaid_multiple_composite_states() {
+    let input = r#"stateDiagram-v2
+    [*] --> TV
+
+    state TV {
+        [*] --> Off
+        On --> Off : Turn off
+        Off --> On : Turn on
+    }
+
+    TV --> Console
+
+    state Console {
+        [*] --> Off2
+        On2 --> Off2 : Turn off
+        Off2 --> On2 : Turn on
+        On2 --> Playing
+
+        state Playing {
+            Alive --> Dead
+            Dead --> Alive
+        }
+    }
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse multiple composites");
+    let svg = render(&diagram).expect("Failed to render multiple composites");
+
+    // Should have all composite states
+    assert!(svg.contains("composite-TV"), "Should have TV composite");
+    assert!(
+        svg.contains("composite-Console"),
+        "Should have Console composite"
+    );
+    assert!(
+        svg.contains("composite-Playing"),
+        "Should have Playing composite (nested in Console)"
+    );
+
+    // Nested composite (Playing) should use alternate styling
+    assert!(
+        svg.contains("state-composite-inner-alt"),
+        "Nested composite should have alternate inner styling"
+    );
+}
+
+/// Test from mermaid: v2 should render fork in composite state
+#[test]
+fn test_mermaid_fork_in_composite() {
+    let input = r#"stateDiagram-v2
+    [*] --> TV
+
+    state TV {
+        state fork_state <<fork>>
+        [*] --> fork_state
+        fork_state --> State2
+        fork_state --> State3
+
+        state join_state <<join>>
+        State2 --> join_state
+        State3 --> join_state
+        join_state --> State4
+        State4 --> [*]
+    }
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse fork in composite");
+    let svg = render(&diagram).expect("Failed to render fork in composite");
+
+    // Should have composite with fork/join inside
+    assert!(svg.contains("composite-TV"), "Should have TV composite");
+    assert!(
+        svg.contains("state-fork_state"),
+        "Should have fork inside composite"
+    );
+    assert!(
+        svg.contains("state-join_state"),
+        "Should have join inside composite"
+    );
+}
+
+/// Test from mermaid: v2 should render state with note
+#[test]
+fn test_mermaid_state_with_note() {
+    let input = r#"stateDiagram-v2
+    State1: The state with a note
+    note right of State1
+        Important information! You can write
+        notes.
+    end note
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse state with note");
+    let svg = render(&diagram).expect("Failed to render state with note");
+
+    // Should have the state
+    assert!(svg.contains("State1"), "Should have State1");
+    // Should have the note with its content
+    assert!(
+        svg.contains("Important information"),
+        "Should render note content"
+    );
+}
+
+/// Test: Composite state titles should be centered horizontally
+#[test]
+fn test_composite_title_centered() {
+    let input = r#"stateDiagram-v2
+    state Processing {
+        [*] --> Working
+        Working --> Done
+    }
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse");
+    let svg = render(&diagram).expect("Failed to render");
+
+    // Find the composite label text element
+    // It should have text-anchor="middle" for centering
+    assert!(
+        svg.contains("state-composite-label") && svg.contains("text-anchor=\"middle\""),
+        "Composite state title should be centered with text-anchor=\"middle\""
+    );
+}
+
+/// Test: Fork edges should fan out with curves, not straight lines
+#[test]
+fn test_fork_edges_are_curved() {
+    let input = r#"stateDiagram-v2
+    direction TB
+    [*] --> Start
+    state fork_state <<fork>>
+    Start --> fork_state
+    fork_state --> Target1
+    fork_state --> Target2
+    fork_state --> Target3
+    "#;
+
+    let diagram = parse(input).expect("Failed to parse fork diagram");
+    let svg = render(&diagram).expect("Failed to render fork diagram");
+
+    // Extract all path d attributes
+    let path_regex =
+        regex::Regex::new(r#"<path[^>]*d="([^"]+)"[^>]*class="transition-path""#).expect("regex");
+
+    let paths: Vec<&str> = path_regex
+        .captures_iter(&svg)
+        .filter_map(|cap| cap.get(1).map(|m| m.as_str()))
+        .collect();
+
+    eprintln!("Found {} transition paths", paths.len());
+    for (i, path) in paths.iter().enumerate() {
+        eprintln!("  Path {}: {}", i, &path[..path.len().min(100)]);
+    }
+
+    // Count paths with curves (should have C commands for curves)
+    let curved_count = paths.iter().filter(|p| p.contains(" C ")).count();
+
+    // At least some paths from fork should be curved
+    assert!(
+        curved_count >= 2,
+        "Fork edges should produce curved paths. Found {} curved paths out of {}",
+        curved_count,
+        paths.len()
+    );
+}
+
+// ============================================================================
+// Sequence Diagram Visual Parity Tests (mermaid compatibility)
+// ============================================================================
+
+/// Test: Sequence diagram actors should have inline fill for mermaid parity
+#[test]
+fn test_sequence_actors_have_inline_fill() {
+    let input = r#"sequenceDiagram
+    participant Alice
+    participant Bob
+    Alice->>Bob: Hello"#;
+
+    let diagram = parse(input).expect("Failed to parse sequence diagram");
+    let svg = render_with_config(&diagram, &RenderConfig::default())
+        .expect("Failed to render sequence diagram");
+
+    // Actor boxes should have inline fill="#eaeaea" to match mermaid
+    assert!(
+        svg.contains("fill=\"#eaeaea\"") || svg.contains("fill=\"#EAEAEA\""),
+        "Actor boxes should have inline fill=#eaeaea for mermaid visual parity.\nSVG snippet: {}",
+        &svg[..svg.len().min(2000)]
+    );
+}
+
+/// Test: Sequence diagram notes should have inline fill for mermaid parity
+#[test]
+fn test_sequence_notes_have_inline_fill() {
+    let input = r#"sequenceDiagram
+    participant Alice
+    Note right of Alice: A note"#;
+
+    let diagram = parse(input).expect("Failed to parse sequence diagram");
+    let svg = render_with_config(&diagram, &RenderConfig::default())
+        .expect("Failed to render sequence diagram");
+
+    // Notes should have inline fill for mermaid visual parity
+    // Mermaid uses #EDF2AE or #fff5ad depending on theme
+    let has_note_fill = svg.contains("fill=\"#EDF2AE\"")
+        || svg.contains("fill=\"#edf2ae\"")
+        || svg.contains("fill=\"#fff5ad\"")
+        || svg.contains("fill=\"#FFF5AD\"");
+
+    assert!(
+        has_note_fill,
+        "Notes should have inline fill for mermaid visual parity.\nSVG snippet: {}",
+        &svg[..svg.len().min(2000)]
+    );
+}
+
+#[test]
+fn test_state_nested_composite_centered_in_parent_with_siblings() {
+    // Reproduces eval issue: state_complex2 "Nested composite Processing not centered in Idle: -137px offset (reference: 30px)"
+    // When a parent composite has both non-composite children and a nested composite,
+    // the nested composite should be horizontally centered within the parent's full width,
+    // not relative to just the non-composite siblings.
+    let input = std::fs::read_to_string("docs/sources/state_complex2.mmd")
+        .expect("Failed to read state_complex2.mmd");
+
+    let diagram = parse(&input).expect("Failed to parse");
+    let svg = render(&diagram).expect("Failed to render");
+
+    // Extract outer rect bounds for both composites
+    let extract_composite_bounds = |svg: &str, name: &str| -> Option<(f64, f64, f64)> {
+        let composite_marker = format!("id=\"composite-{}\"", name);
+        let composite_start = svg.find(&composite_marker)?;
+        let relevant_section = &svg[composite_start..composite_start.saturating_add(600)];
+
+        let x_pattern = regex::Regex::new(r#"x="([0-9.]+)""#).ok()?;
+        let w_pattern = regex::Regex::new(r#"width="([0-9.]+)""#).ok()?;
+
+        for line in relevant_section.lines() {
+            if line.contains("state-composite-outer") {
+                if let (Some(x_caps), Some(w_caps)) =
+                    (x_pattern.captures(line), w_pattern.captures(line))
+                {
+                    let x: f64 = x_caps.get(1)?.as_str().parse().ok()?;
+                    let w: f64 = w_caps.get(1)?.as_str().parse().ok()?;
+                    let center = x + w / 2.0;
+                    return Some((x, w, center));
+                }
+            }
+        }
+        None
+    };
+
+    let idle_bounds = extract_composite_bounds(&svg, "Idle");
+    let processing_bounds = extract_composite_bounds(&svg, "Processing");
+
+    eprintln!("Composite bounds:");
+    eprintln!("  Idle: {:?}", idle_bounds);
+    eprintln!("  Processing: {:?}", processing_bounds);
+
+    if let (Some((idle_x, idle_w, idle_center)), Some((_proc_x, _proc_w, proc_center))) =
+        (idle_bounds, processing_bounds)
+    {
+        // Processing should be centered within Idle
+        let offset = proc_center - idle_center;
+        eprintln!("  Offset of Processing center from Idle center: {}", offset);
+
+        // The offset should be small (within ~50px), not -137px
+        assert!(
+            offset.abs() < 50.0,
+            "Processing should be approximately centered in Idle: offset={} (should be near 0)",
+            offset
+        );
+
+        // Processing should be fully contained within Idle (with some padding)
+        assert!(
+            _proc_x >= idle_x,
+            "Processing should not extend left of Idle: proc_x={}, idle_x={}",
+            _proc_x,
+            idle_x
+        );
+        assert!(
+            _proc_x + _proc_w <= idle_x + idle_w + 1.0, // 1px tolerance
+            "Processing should not extend right of Idle: proc_right={}, idle_right={}",
+            _proc_x + _proc_w,
+            idle_x + idle_w
+        );
+    } else {
+        panic!(
+            "Could not extract composite bounds from SVG.\nIdle: {:?}\nProcessing: {:?}",
+            idle_bounds, processing_bounds
+        );
+    }
+}
+
+#[test]
+fn test_flowchart_classdef_dark_fill_gets_legible_text() {
+    let input = r#"flowchart TD
+    A[Dark Node]:::dark --> B[Light Node]:::light
+    classDef dark fill:#1a1a2e,stroke:#16213e
+    classDef light fill:#f0f0f0,stroke:#ccc"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // Node A has a very dark fill (#1a1a2e) — its text should have white fill via inline style
+    // (inline style beats theme CSS rules like `.node text { fill: ... }`)
+    assert!(
+        svg.contains("style=\"fill: #ffffff\""),
+        "Dark background node should have white text fill via inline style.\nSVG:\n{}",
+        svg
+    );
+
+    // Node B has a light fill (#f0f0f0) — its text should have black fill via inline style
+    assert!(
+        svg.contains("style=\"fill: #000000\""),
+        "Light background node should have black text fill via inline style.\nSVG:\n{}",
+        svg
+    );
+}
+
+#[test]
+fn test_flowchart_classdef_explicit_color_used() {
+    let input = r#"flowchart TD
+    A[Custom Color]:::custom
+    classDef custom fill:#333,color:#ff6600"#;
+
+    let diagram = parse(input).expect("Failed to parse flowchart");
+    let svg = render(&diagram).expect("Failed to render flowchart");
+
+    // The explicit color:#ff6600 should be used as the text fill via inline style
+    assert!(
+        svg.contains("style=\"fill: #ff6600\""),
+        "Explicit color in classDef should be used for text fill via inline style.\nSVG:\n{}",
+        svg
+    );
+}

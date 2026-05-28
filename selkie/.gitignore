@@ -1,0 +1,25 @@
+target/
+
+# Node.js
+node_modules/
+
+# Playwright MCP screenshots
+.playwright-mcp/
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+eval-report/
+
+# Gas Town (added by gt)
+.runtime/
+.claude/
+.beads/
+.logs/

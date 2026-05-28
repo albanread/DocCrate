@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400" class="mermaid">
+  <style>
+
+.mermaid {
+  font-family: trebuchet ms, verdana, arial, sans-serif;
+  font-size: 16px;
+}
+
+.node rect,
+.node polygon,
+.node circle,
+.node ellipse,
+.node path {
+  fill: #ECECFF;
+  stroke: #9370DB;
+  stroke-width: 1px;
+}
+
+.node line {
+  stroke: #9370DB;
+  stroke-width: 1px;
+}
+
+.node .label {
+  fill: #333333;
+}
+
+.node text {
+  fill: #333333;
+  font-family: trebuchet ms, verdana, arial, sans-serif;
+  font-size: 16px;
+}
+
+.edge-path {
+  fill: none;
+  stroke: #333333;
+  stroke-width: 1px;
+}
+
+.edge-label {
+  fill: #333333;
+  font-family: trebuchet ms, verdana, arial, sans-serif;
+}
+
+.edge-label-bg {
+  fill: rgba(232, 232, 232, 0.8);
+}
+
+.subgraph {
+  fill: #ffffde;
+  stroke: #aaaa33;
+  stroke-width: 1px;
+}
+
+.subgraph-title {
+  fill: #333333;
+  font-weight: bold;
+}
+
+.cluster rect {
+  fill: #ffffde;
+  stroke: #aaaa33;
+  stroke-width: 1px;
+  rx: 5px;
+  ry: 5px;
+}
+
+.cluster-label {
+  fill: #333333;
+  font-family: trebuchet ms, verdana, arial, sans-serif;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+marker path {
+  fill: #333333;
+  stroke: #333333;
+}
+
+
+.sankey-node {
+  stroke: none;
+}
+
+.sankey-link {
+  stroke-opacity: 0.5;
+}
+
+.sankey-label {
+  fill: #333333;
+  font-family: trebuchet ms, verdana, arial, sans-serif;
+}
+
+.link {
+  mix-blend-mode: multiply;
+}
+
+  </style>
+  <defs>
+    <linearGradient id="linearGradient-1" gradientUnits="userSpaceOnUse" x1="10" x2="590"><stop offset="0%" stop-color="#4e79a7"/><stop offset="100%" stop-color="#f28e2c"/></linearGradient>
+    <linearGradient id="linearGradient-2" gradientUnits="userSpaceOnUse" x1="10" x2="590"><stop offset="0%" stop-color="#4e79a7"/><stop offset="100%" stop-color="#e15759"/></linearGradient>
+    <linearGradient id="linearGradient-3" gradientUnits="userSpaceOnUse" x1="10" x2="590"><stop offset="0%" stop-color="#4e79a7"/><stop offset="100%" stop-color="#76b7b2"/></linearGradient>
+    <linearGradient id="linearGradient-4" gradientUnits="userSpaceOnUse" x1="10" x2="590"><stop offset="0%" stop-color="#4e79a7"/><stop offset="100%" stop-color="#59a14f"/></linearGradient>
+  </defs>
+  <g class="root">
+    <g class="clusters">
+
+    </g>
+    <g class="edgePaths">
+
+    </g>
+    <g class="edgeLabels">
+
+    </g>
+    <g class="nodes">
+
+    </g>
+    <g class="nodes">
+      <g class="node" id="node-1" x="0" transform="translate(0,4.392202866876659)" y="4.392202866876659">
+        <rect x="0" y="0" width="10" height="325" fill="#4e79a7"/>
+      </g>
+      <g class="node" id="node-2" y="399.5011248955454" x="590" transform="translate(590,399.5011248955454)">
+        <rect x="0" y="0" width="10" height="0.49887510445461203" fill="#f28e2c"/>
+      </g>
+      <g class="node" id="node-3" transform="translate(590,352.05425210516165)" x="590" y="352.05425210516165">
+        <rect x="0" y="0" width="10" height="22.446872790383736" fill="#e15759"/>
+      </g>
+      <g class="node" transform="translate(590,0)" id="node-4" x="590" y="0">
+        <rect x="0" y="0" width="10" height="234.2473484605001" fill="#76b7b2"/>
+      </g>
+      <g class="node" y="259.24734846050006" id="node-5" transform="translate(590,259.24734846050006)" x="590">
+        <rect x="0" y="0" width="10" height="67.80690364466159" fill="#59a14f"/>
+      </g>
+    </g>
+    <g class="node-labels" font-size="14">
+      <text x="16" y="166.8922028668767" dy="0em" text-anchor="start">Bio-conversion
+388.93</text>
+      <text x="584" y="399.7505624477727" dy="0em" text-anchor="end">Liquid
+0.6</text>
+      <text x="584" y="363.2776885003535" dy="0em" text-anchor="end">Losses
+26.86</text>
+      <text x="584" y="117.12367423025005" dy="0em" text-anchor="end">Solid
+280.32</text>
+      <text x="584" y="293.15080028283086" dy="0em" text-anchor="end">Gas
+81.14</text>
+    </g>
+    <g class="links" stroke-opacity="0.5" fill="none">
+      <g class="link" style="mix-blend-mode: multiply">
+        <path d="M10,4.892202866876659 C300,4.892202866876659 300,400.0011248955454 590,400.0011248955454" stroke-width="1" stroke="url(#linearGradient-1)"/>
+      </g>
+      <g class="link" style="mix-blend-mode: multiply">
+        <path d="M10,16.615639262068534 C300,16.615639262068534 300,363.2776885003535 590,363.2776885003535" stroke="url(#linearGradient-2)" stroke-width="22.446872790383747"/>
+      </g>
+      <g class="link" style="mix-blend-mode: multiply">
+        <path d="M10,144.96274988751045 C300,144.96274988751045 300,117.12367423025005 590,117.12367423025005" stroke="url(#linearGradient-3)" stroke-width="234.2473484605001"/>
+      </g>
+      <g class="link" style="mix-blend-mode: multiply">
+        <path d="M10,295.98987594009134 C300,295.98987594009134 300,293.15080028283086 590,293.15080028283086" stroke="url(#linearGradient-4)" stroke-width="67.80690364466157"/>
+      </g>
+    </g>
+  </g>
+</svg>

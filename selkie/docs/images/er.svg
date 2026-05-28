@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="621.6" height="732.75" viewBox="0 0 621.6 732.75" class="mermaid">
+  <style>
+
+.mermaid {
+  font-family: trebuchet ms, verdana, arial, sans-serif;
+  font-size: 16px;
+}
+
+.node rect,
+.node polygon,
+.node circle,
+.node ellipse,
+.node path {
+  fill: #ECECFF;
+  stroke: #9370DB;
+  stroke-width: 1px;
+}
+
+.node line {
+  stroke: #9370DB;
+  stroke-width: 1px;
+}
+
+.node .label {
+  fill: #333333;
+}
+
+.node text {
+  fill: #333333;
+  font-family: trebuchet ms, verdana, arial, sans-serif;
+  font-size: 16px;
+}
+
+.edge-path {
+  fill: none;
+  stroke: #333333;
+  stroke-width: 1px;
+}
+
+.edge-label {
+  fill: #333333;
+  font-family: trebuchet ms, verdana, arial, sans-serif;
+}
+
+.edge-label-bg {
+  fill: rgba(232, 232, 232, 0.8);
+}
+
+.subgraph {
+  fill: #ffffde;
+  stroke: #aaaa33;
+  stroke-width: 1px;
+}
+
+.subgraph-title {
+  fill: #333333;
+  font-weight: bold;
+}
+
+.cluster rect {
+  fill: #ffffde;
+  stroke: #aaaa33;
+  stroke-width: 1px;
+  rx: 5px;
+  ry: 5px;
+}
+
+.cluster-label {
+  fill: #333333;
+  font-family: trebuchet ms, verdana, arial, sans-serif;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+marker path {
+  fill: #333333;
+  stroke: #333333;
+}
+
+
+.er-title {
+  fill: #333333;
+}
+
+.entity-box {
+  fill: #ECECFF;
+  stroke: #9370DB;
+}
+
+.entity-header {
+  fill: #9370DB;
+  stroke: #9370DB;
+}
+
+.entity-name {
+  fill: #333333;
+  font-weight: bold;
+}
+
+.entity-attr {
+  fill: #333333;
+}
+
+.relationshipLine {
+  stroke: #333333;
+  stroke-width: 1;
+  fill: none;
+}
+
+.relationship-label {
+  fill: #9370DB;
+  font-size: 14px;
+}
+
+.relationship-label-background {
+  fill: #f9ffec;
+  opacity: 0.7;
+}
+
+.marker {
+  fill: none;
+  stroke: #333333;
+  stroke-width: 1;
+}
+
+.marker circle {
+  fill: white;
+}
+
+.row-rect-odd {
+  fill: white;
+}
+
+.row-rect-even {
+  fill: #ECECFF;
+}
+
+.divider {
+  stroke: #9370DB;
+}
+
+  </style>
+  <defs>
+    <marker id="er-onlyOneStart" viewBox="0 0 18 18" refX="0" refY="9" markerWidth="18" markerHeight="18" orient="auto">
+      <path d="M9,0 L9,18 M15,0 L15,18" class="marker"/>
+    </marker>
+    <marker id="er-onlyOneEnd" viewBox="0 0 18 18" refX="18" refY="9" markerWidth="18" markerHeight="18" orient="auto">
+      <path d="M3,0 L3,18 M9,0 L9,18" class="marker"/>
+    </marker>
+    <marker id="er-zeroOrOneStart" viewBox="0 0 30 18" refX="0" refY="9" markerWidth="30" markerHeight="18" orient="auto">
+      <circle cx="21" cy="9" r="6" class="marker" fill="white"/>
+      <path d="M9,0 L9,18" class="marker"/>
+    </marker>
+    <marker id="er-zeroOrOneEnd" viewBox="0 0 30 18" refX="30" refY="9" markerWidth="30" markerHeight="18" orient="auto">
+      <circle cx="9" cy="9" r="6" class="marker" fill="white"/>
+      <path d="M21,0 L21,18" class="marker"/>
+    </marker>
+    <marker id="er-oneOrMoreStart" viewBox="0 0 45 36" refX="18" refY="18" markerWidth="45" markerHeight="36" orient="auto">
+      <path d="M0,18 Q 18,0 36,18 Q 18,36 0,18 M42,9 L42,27" class="marker"/>
+    </marker>
+    <marker id="er-oneOrMoreEnd" viewBox="0 0 45 36" refX="27" refY="18" markerWidth="45" markerHeight="36" orient="auto">
+      <path d="M3,9 L3,27 M9,18 Q27,0 45,18 Q27,36 9,18" class="marker"/>
+    </marker>
+    <marker id="er-zeroOrMoreStart" viewBox="0 0 57 36" refX="18" refY="18" markerWidth="57" markerHeight="36" orient="auto">
+      <circle cx="48" cy="18" r="6" class="marker" fill="white"/>
+      <path d="M0,18 Q18,0 36,18 Q18,36 0,18" class="marker"/>
+    </marker>
+    <marker id="er-zeroOrMoreEnd" viewBox="0 0 57 36" refX="39" refY="18" markerWidth="57" markerHeight="36" orient="auto">
+      <circle cx="9" cy="18" r="6" class="marker" fill="white"/>
+      <path d="M21,18 Q39,0 57,18 Q39,36 21,18" class="marker"/>
+    </marker>
+  </defs>
+  <g class="root">
+    <g class="clusters">
+
+    </g>
+    <g class="edgePaths">
+
+    </g>
+    <g class="edgeLabels">
+
+    </g>
+    <g class="nodes">
+
+    </g>
+    <g class="relationship">
+      <path d="M 107.10 187.00 C 107.10 203.67, 107.10 220.33, 107.10 237.00 C 107.10 253.67, 107.10 270.33, 107.10 287.00" class="relationshipLine" marker-start="url(#er-onlyOneStart)" marker-end="url(#er-zeroOrMoreEnd)"/>
+      <rect x="82.10000000000002" y="225" width="50" height="23" rx="0" ry="0" class="relationship-label-background"/>
+      <text x="107.10000000000002" y="241" class="relationship-label" font-size="14" text-anchor="middle">places</text>
+    </g>
+    <g class="relationship">
+      <path d="M 107.10 474.00 C 107.10 490.67, 107.10 507.33, 123.84 528.90 C 140.58 550.46, 174.07 576.92, 207.55 603.38" class="relationshipLine" marker-end="url(#er-oneOrMoreEnd)" marker-start="url(#er-onlyOneStart)"/>
+      <rect x="105.70980567688446" y="536.1876886570702" width="64" height="23" rx="0" ry="0" class="relationship-label-background"/>
+      <text x="137.70980567688446" y="552.1876886570702" class="relationship-label" text-anchor="middle" font-size="14">contains</text>
+    </g>
+    <g class="relationship">
+      <path d="M 437.90 474.00 C 437.90 490.67, 437.90 507.33, 421.16 528.90 C 404.42 550.46, 370.93 576.92, 337.45 603.38" class="relationshipLine" marker-end="url(#er-zeroOrMoreEnd)" marker-start="url(#er-onlyOneStart)"/>
+      <rect x="375.2901943231156" y="536.1876886570702" width="64" height="23" rx="0" ry="0" class="relationship-label-background"/>
+      <text x="407.2901943231156" y="552.1876886570702" class="relationship-label" font-size="14" text-anchor="middle">includes</text>
+    </g>
+    <g class="entity-node" id="entity-CUSTOMER-0">
+      <rect x="15.600000000000009" y="0" width="183.00000000000003" height="187" rx="0" ry="0" class="entity-box" stroke-width="1.3"/>
+      <rect x="15.600000000000009" y="42.75" width="183.00000000000003" height="42.75" rx="0" ry="0" class="row-rect-odd" stroke-width="1.3"/>
+      <rect x="15.600000000000009" y="85.5" width="183.00000000000003" height="42.75" rx="0" ry="0" class="row-rect-even" stroke-width="1.3"/>
+      <rect x="15.600000000000009" y="128.25" width="183.00000000000003" height="42.75" rx="0" ry="0" class="row-rect-odd" stroke-width="1.3"/>
+      <line x1="15.600000000000009" y1="42.75" x2="198.60000000000002" y2="42.75" class="divider" stroke-width="1.3"/>
+      <line x1="84.40000000000002" y1="42.75" x2="84.40000000000002" y2="187" class="divider" stroke-width="1.3"/>
+      <line x1="161.00000000000003" y1="42.75" x2="161.00000000000003" y2="187" class="divider" stroke-width="1.3"/>
+      <text x="107.10000000000002" y="26.375" class="entity-name" font-size="14" text-anchor="middle">CUSTOMER</text>
+      <text x="27.60000000000001" y="68.125" class="entity-attr attribute-type" text-anchor="start" font-size="12">string</text>
+      <text x="96.40000000000002" y="68.125" class="entity-attr attribute-name" font-size="12" text-anchor="start">name</text>
+      <text x="27.60000000000001" y="110.875" class="entity-attr attribute-type" text-anchor="start" font-size="12">string</text>
+      <text x="96.40000000000002" y="110.875" class="entity-attr attribute-name" font-size="12" text-anchor="start">email</text>
+      <text x="173.00000000000003" y="110.875" class="entity-attr attribute-key" text-anchor="start" font-size="12">PK</text>
+      <text x="27.60000000000001" y="153.625" class="entity-attr attribute-type" text-anchor="start" font-size="12">string</text>
+      <text x="96.40000000000002" y="153.625" class="entity-attr attribute-name" text-anchor="start" font-size="12">address</text>
+    </g>
+    <g class="entity-node" id="entity-LINE-ITEM-2">
+      <rect x="207.55" y="574" width="129.89999999999998" height="58.75" rx="0" ry="0" class="entity-box" stroke-width="1.3"/>
+      <text x="272.5" y="608.375" class="entity-name" text-anchor="middle" font-size="14">LINE-ITEM</text>
+    </g>
+    <g class="entity-node" id="entity-ORDER-1">
+      <rect x="0.000000000000014210854715202004" y="287" width="214.20000000000002" height="187" rx="0" ry="0" class="entity-box" stroke-width="1.3"/>
+      <rect x="0.000000000000014210854715202004" y="329.75" width="214.20000000000002" height="42.75" rx="0" ry="0" class="row-rect-odd" stroke-width="1.3"/>
+      <rect x="0.000000000000014210854715202004" y="372.5" width="214.20000000000002" height="42.75" rx="0" ry="0" class="row-rect-even" stroke-width="1.3"/>
+      <rect x="0.000000000000014210854715202004" y="415.25" width="214.20000000000002" height="42.75" rx="0" ry="0" class="row-rect-odd" stroke-width="1.3"/>
+      <line x1="0.000000000000014210854715202004" y1="329.75" x2="214.20000000000005" y2="329.75" class="divider" stroke-width="1.3"/>
+      <line x1="68.80000000000003" y1="329.75" x2="68.80000000000003" y2="474" class="divider" stroke-width="1.3"/>
+      <line x1="176.60000000000002" y1="329.75" x2="176.60000000000002" y2="474" class="divider" stroke-width="1.3"/>
+      <text x="107.10000000000002" y="313.375" class="entity-name" font-size="14" text-anchor="middle">ORDER</text>
+      <text x="12.000000000000014" y="355.125" class="entity-attr attribute-type" font-size="12" text-anchor="start">int</text>
+      <text x="80.80000000000003" y="355.125" class="entity-attr attribute-name" font-size="12" text-anchor="start">orderNumber</text>
+      <text x="188.60000000000002" y="355.125" class="entity-attr attribute-key" font-size="12" text-anchor="start">PK</text>
+      <text x="12.000000000000014" y="397.875" class="entity-attr attribute-type" font-size="12" text-anchor="start">date</text>
+      <text x="80.80000000000003" y="397.875" class="entity-attr attribute-name" font-size="12" text-anchor="start">orderDate</text>
+      <text x="12.000000000000014" y="440.625" class="entity-attr attribute-type" text-anchor="start" font-size="12">string</text>
+      <text x="80.80000000000003" y="440.625" class="entity-attr attribute-name" text-anchor="start" font-size="12">status</text>
+    </g>
+    <g class="entity-node" id="entity-PRODUCT-3">
+      <rect x="354.20000000000005" y="287" width="167.4" height="187" rx="0" ry="0" class="entity-box" stroke-width="1.3"/>
+      <rect x="354.20000000000005" y="329.75" width="167.4" height="42.75" rx="0" ry="0" class="row-rect-odd" stroke-width="1.3"/>
+      <rect x="354.20000000000005" y="372.5" width="167.4" height="42.75" rx="0" ry="0" class="row-rect-even" stroke-width="1.3"/>
+      <rect x="354.20000000000005" y="415.25" width="167.4" height="42.75" rx="0" ry="0" class="row-rect-odd" stroke-width="1.3"/>
+      <line x1="354.20000000000005" y1="329.75" x2="521.6" y2="329.75" class="divider" stroke-width="1.3"/>
+      <line x1="423.00000000000006" y1="329.75" x2="423.00000000000006" y2="474" class="divider" stroke-width="1.3"/>
+      <line x1="484.00000000000006" y1="329.75" x2="484.00000000000006" y2="474" class="divider" stroke-width="1.3"/>
+      <text x="437.90000000000003" y="313.375" class="entity-name" font-size="14" text-anchor="middle">PRODUCT</text>
+      <text x="366.20000000000005" y="355.125" class="entity-attr attribute-type" font-size="12" text-anchor="start">int</text>
+      <text x="435.00000000000006" y="355.125" class="entity-attr attribute-name" font-size="12" text-anchor="start">id</text>
+      <text x="496.00000000000006" y="355.125" class="entity-attr attribute-key" text-anchor="start" font-size="12">PK</text>
+      <text x="366.20000000000005" y="397.875" class="entity-attr attribute-type" text-anchor="start" font-size="12">string</text>
+      <text x="435.00000000000006" y="397.875" class="entity-attr attribute-name" text-anchor="start" font-size="12">name</text>
+      <text x="366.20000000000005" y="440.625" class="entity-attr attribute-type" font-size="12" text-anchor="start">float</text>
+      <text x="435.00000000000006" y="440.625" class="entity-attr attribute-name" text-anchor="start" font-size="12">price</text>
+    </g>
+  </g>
+</svg>

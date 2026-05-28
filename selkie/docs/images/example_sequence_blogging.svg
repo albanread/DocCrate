@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1146" height="884" viewBox="-50 -10 1146 884" class="mermaid">
+  <style>
+
+.mermaid {
+  font-family: trebuchet ms, verdana, arial, sans-serif;
+  font-size: 16px;
+}
+
+.node rect,
+.node polygon,
+.node circle,
+.node ellipse,
+.node path {
+  fill: #ECECFF;
+  stroke: #9370DB;
+  stroke-width: 1px;
+}
+
+.node line {
+  stroke: #9370DB;
+  stroke-width: 1px;
+}
+
+.node .label {
+  fill: #333333;
+}
+
+.node text {
+  fill: #333333;
+  font-family: trebuchet ms, verdana, arial, sans-serif;
+  font-size: 16px;
+}
+
+.edge-path {
+  fill: none;
+  stroke: #333333;
+  stroke-width: 1px;
+}
+
+.edge-label {
+  fill: #333333;
+  font-family: trebuchet ms, verdana, arial, sans-serif;
+}
+
+.edge-label-bg {
+  fill: rgba(232, 232, 232, 0.8);
+}
+
+.subgraph {
+  fill: #ffffde;
+  stroke: #aaaa33;
+  stroke-width: 1px;
+}
+
+.subgraph-title {
+  fill: #333333;
+  font-weight: bold;
+}
+
+.cluster rect {
+  fill: #ffffde;
+  stroke: #aaaa33;
+  stroke-width: 1px;
+  rx: 5px;
+  ry: 5px;
+}
+
+.cluster-label {
+  fill: #333333;
+  font-family: trebuchet ms, verdana, arial, sans-serif;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+marker path {
+  fill: #333333;
+  stroke: #333333;
+}
+
+
+.sequence-title {
+  fill: #333333;
+}
+
+.actor {
+  stroke: #9370DB;
+  fill: #ECECFF;
+}
+
+.actor-box {
+  stroke: #9370DB;
+  fill: #ECECFF;
+}
+
+/* Actor text - no stroke (avoid outlined appearance) */
+text.actor, text.actor > tspan, text.actor-box, text.actor-label {
+  fill: #333333;
+  stroke: none;
+}
+
+.actor-line {
+  stroke: #999999;
+  stroke-width: 0.5px;
+}
+
+.messageLine0 {
+  stroke-width: 1.5;
+  stroke-dasharray: none;
+  stroke: #333333;
+}
+
+.messageLine1 {
+  stroke-width: 1.5;
+  stroke-dasharray: 2, 2;
+  stroke: #333333;
+}
+
+.message-line {
+  stroke: #333333;
+}
+
+.messageText {
+  fill: #333333;
+  stroke: none;
+}
+
+.message-label {
+  fill: #333333;
+  stroke: none;
+}
+
+.note {
+  stroke: #aaaa33;
+  fill: #FFFFCC;
+}
+
+.noteText, .noteText > tspan {
+  fill: #333333;
+  stroke: none;
+}
+
+.note-text, .note-text > tspan {
+  fill: #333333;
+  stroke: none;
+}
+
+.activation {
+  fill: #f4f4f4;
+  stroke: #666666;
+}
+
+.loopLine {
+  stroke: #9370DB;
+  fill: none;
+  stroke-width: 2px;
+  stroke-dasharray: 2, 2;
+}
+
+.loopText {
+  fill: #333333;
+}
+
+.labelBox {
+  stroke: #9370DB;
+  fill: #ECECFF;
+}
+
+.sequence-marker-filled {
+  fill: #333333;
+  stroke: #333333;
+}
+
+.sequence-marker-open {
+  fill: none;
+  stroke: #333333;
+}
+
+.sequence-marker-cross {
+  stroke: #333333;
+}
+
+.sequence-number {
+  fill: #333333;
+}
+
+.sequenceNumber-circle {
+  fill: #333333;
+  stroke: #333333;
+}
+
+.sequenceNumber {
+  fill: white;
+}
+
+  </style>
+  <defs>
+    <marker id="arrow-filled" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="12" markerHeight="12" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" class="sequence-marker-filled" stroke-width="1"/>
+    </marker>
+    <marker id="arrow-open" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="12" markerHeight="12" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10" class="sequence-marker-open" stroke-width="1"/>
+    </marker>
+    <marker id="arrow-cross" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="12" markerHeight="12" orient="auto">
+      <line x1="0" y1="0" x2="10" y2="10" class="sequence-marker-cross" stroke-width="2"/>
+      <line x1="10" y1="0" x2="0" y2="10" class="sequence-marker-cross" stroke-width="2"/>
+    </marker>
+    <marker id="sequencenumber" refX="15" refY="15" markerWidth="60" markerHeight="40" orient="auto">
+      <circle cx="15" cy="15" r="6" class="sequence-number"/>
+    </marker>
+  </defs>
+  <g class="root">
+    <g class="clusters">
+      <line x1="-10" y1="378" x2="636" y2="378" class="loopLine" stroke-dasharray="3,3"/>
+      <line x1="220" y1="735" x2="1046" y2="735" class="loopLine" stroke-dasharray="3,3"/>
+      <g>
+        <line x1="0" y1="581" x2="1046" y2="581" class="loopLine"/>
+        <line x1="1046" y1="581" x2="1046" y2="801" class="loopLine"/>
+        <line x1="0" y1="801" x2="1046" y2="801" class="loopLine"/>
+        <line x1="0" y1="581" x2="0" y2="801" class="loopLine"/>
+      </g>
+      <polygon points="10,581 60,581 60,594 52,601 10,601" class="labelBox"/>
+      <g>
+        <line x1="-10" y1="268" x2="1056" y2="268" class="loopLine"/>
+        <line x1="1056" y1="268" x2="1056" y2="801" class="loopLine"/>
+        <line x1="-10" y1="801" x2="1056" y2="801" class="loopLine"/>
+        <line x1="-10" y1="268" x2="-10" y2="801" class="loopLine"/>
+      </g>
+      <polygon points="0,268 50,268 50,281 42,288 0,288" class="labelBox"/>
+      <line x1="75" y1="65" x2="75" y2="799" class="actor-line" stroke-width="0.5px"/>
+      <line x1="295" y1="65" x2="295" y2="799" class="actor-line" stroke-width="0.5px"/>
+      <line x1="551" y1="65" x2="551" y2="799" class="actor-line" stroke-width="0.5px"/>
+      <line x1="771" y1="65" x2="771" y2="799" class="actor-line" stroke-width="0.5px"/>
+      <line x1="971" y1="65" x2="971" y2="799" class="actor-line" stroke-width="0.5px"/>
+      <rect x="546" y="158" width="10" height="264" rx="1" ry="1" class="activation"/>
+      <rect x="290" y="515" width="10" height="264" rx="1" ry="1" class="activation"/>
+    </g>
+    <g class="edgePaths">
+      <line x1="75" y1="158" x2="551" y2="158" class="messageLine0" style="fill: none;" stroke="none" marker-end="url(#arrow-filled)" stroke-width="2"/>
+      <line x1="551" y1="202" x2="971" y2="202" class="messageLine0" marker-end="url(#arrow-filled)" stroke-width="2" stroke="none" style="fill: none;"/>
+      <line x1="971" y1="246" x2="551" y2="246" class="messageLine0" style="fill: none;" stroke-width="2" marker-end="url(#arrow-filled)" stroke="none"/>
+      <line x1="551" y1="334" x2="75" y2="334" class="messageLine0" stroke="none" stroke-width="2" marker-end="url(#arrow-filled)" style="fill: none;"/>
+      <line x1="551" y1="422" x2="75" y2="422" class="messageLine0" style="fill: none;" marker-end="url(#arrow-filled)" stroke="none" stroke-width="2"/>
+      <line x1="75" y1="515" x2="295" y2="515" class="messageLine0" stroke="none" marker-end="url(#arrow-filled)" style="fill: none;" stroke-width="2"/>
+      <line x1="295" y1="559" x2="971" y2="559" class="messageLine0" stroke="none" style="fill: none;" stroke-width="2" marker-end="url(#arrow-filled)"/>
+      <path d="M 295 647 L 335 647 L 335 677 L 295 677" class="message-line" stroke-width="1.5" stroke-dasharray="3,3" fill="none" marker-end="url(#arrow-filled)"/>
+      <path d="M 295 691 L 335 691 L 335 721 L 295 721" class="message-line" stroke-dasharray="3,3" fill="none" marker-end="url(#arrow-filled)" stroke-width="1.5"/>
+      <line x1="295" y1="779" x2="75" y2="779" class="messageLine1" marker-end="url(#arrow-filled)" style="stroke-dasharray: 3, 3; fill: none;" stroke-width="2" stroke="none"/>
+    </g>
+    <g class="edgeLabels">
+      <text x="313" y="148" class="message-label" text-anchor="middle" font-size="16">Logs in using credentials</text>
+      <text x="761" y="192" class="message-label" text-anchor="middle" font-size="16">Query stored accounts</text>
+      <text x="761" y="236" class="message-label" font-size="16" text-anchor="middle">Respond with query result</text>
+      <text x="313" y="324" class="message-label" font-size="16" text-anchor="middle">Invalid credentials</text>
+      <text x="313" y="396" class="loopText" text-anchor="middle" font-size="16">[Credentials found]</text>
+      <text x="313" y="412" class="message-label" font-size="16" text-anchor="middle">Successfully logged in</text>
+      <text x="185" y="505" class="message-label" text-anchor="middle" font-size="16">Submit new post</text>
+      <text x="633" y="549" class="message-label" text-anchor="middle" font-size="16">Store post data</text>
+      <text x="340" y="662" class="message-label" font-size="16" text-anchor="start">Send mail to blog subscribers</text>
+      <text x="340" y="706" class="message-label" font-size="16" text-anchor="start">Store in-site notifications</text>
+      <text x="633" y="753" class="loopText" text-anchor="middle" font-size="16">[Response]</text>
+      <text x="185" y="769" class="message-label" text-anchor="middle" font-size="16">Successfully posted</text>
+      <text x="35" y="594" class="labelText" text-anchor="middle" font-size="16">par</text>
+      <text x="523" y="599" class="loopText" font-size="16" text-anchor="middle">[Notifications]</text>
+      <text x="25" y="281" class="labelText" text-anchor="middle" font-size="16">alt</text>
+      <text x="523" y="286" class="loopText" text-anchor="middle" font-size="16">[Credentials not found]</text>
+    </g>
+    <g class="nodes">
+
+    </g>
+    <g class="actor">
+      <rect x="0" y="0" width="150" height="65" rx="3" ry="3" class="actor actor-box" fill="#eaeaea" stroke="#666" stroke-width="1"/>
+      <text x="75" y="32.5" class="actor actor-box" dominant-baseline="central" text-anchor="middle" font-size="16">Web Browser</text>
+    </g>
+    <g class="actor">
+      <rect x="220" y="0" width="150" height="65" rx="3" ry="3" class="actor actor-box" stroke="#666" fill="#eaeaea" stroke-width="1"/>
+      <text x="295" y="32.5" class="actor actor-box" text-anchor="middle" font-size="16" dominant-baseline="central">Blog Service</text>
+    </g>
+    <g class="actor">
+      <rect x="476" y="0" width="150" height="65" rx="3" ry="3" class="actor actor-box" stroke-width="1" fill="#eaeaea" stroke="#666"/>
+      <text x="551" y="32.5" class="actor actor-box" font-size="16" dominant-baseline="central" text-anchor="middle">Account Service</text>
+    </g>
+    <g class="actor">
+      <rect x="696" y="0" width="150" height="65" rx="3" ry="3" class="actor actor-box" stroke-width="1" stroke="#666" fill="#eaeaea"/>
+      <text x="771" y="32.5" class="actor actor-box" font-size="16" text-anchor="middle" dominant-baseline="central">Mail Service</text>
+    </g>
+    <g class="actor">
+      <rect x="896" y="0" width="150" height="65" rx="3" ry="3" class="actor actor-box" stroke="#666" fill="#eaeaea" stroke-width="1"/>
+      <text x="971" y="32.5" class="actor actor-box" text-anchor="middle" font-size="16" dominant-baseline="central">Storage</text>
+    </g>
+    <g class="note">
+      <rect x="50" y="75" width="946" height="39" class="note" stroke="#666" fill="#EDF2AE"/>
+      <text x="523" y="80" class="noteText" font-size="16" alignment-baseline="middle" text-anchor="middle" dy="1em" dominant-baseline="middle">The user must be logged in to submit blog posts</text>
+    </g>
+    <g class="note">
+      <rect x="50" y="432" width="946" height="39" class="note" stroke="#666" fill="#EDF2AE"/>
+      <text x="523" y="437" class="noteText" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" dy="1em" font-size="16">When the user is authenticated, they can now submit new posts</text>
+    </g>
+    <g class="actor">
+      <rect x="0" y="799" width="150" height="65" rx="3" ry="3" class="actor actor-box" stroke-width="1" fill="#eaeaea" stroke="#666"/>
+      <text x="75" y="831.5" class="actor actor-box" font-size="16" dominant-baseline="central" text-anchor="middle">Web Browser</text>
+    </g>
+    <g class="actor">
+      <rect x="220" y="799" width="150" height="65" rx="3" ry="3" class="actor actor-box" fill="#eaeaea" stroke-width="1" stroke="#666"/>
+      <text x="295" y="831.5" class="actor actor-box" dominant-baseline="central" text-anchor="middle" font-size="16">Blog Service</text>
+    </g>
+    <g class="actor">
+      <rect x="476" y="799" width="150" height="65" rx="3" ry="3" class="actor actor-box" fill="#eaeaea" stroke="#666" stroke-width="1"/>
+      <text x="551" y="831.5" class="actor actor-box" text-anchor="middle" font-size="16" dominant-baseline="central">Account Service</text>
+    </g>
+    <g class="actor">
+      <rect x="696" y="799" width="150" height="65" rx="3" ry="3" class="actor actor-box" fill="#eaeaea" stroke-width="1" stroke="#666"/>
+      <text x="771" y="831.5" class="actor actor-box" text-anchor="middle" dominant-baseline="central" font-size="16">Mail Service</text>
+    </g>
+    <g class="actor">
+      <rect x="896" y="799" width="150" height="65" rx="3" ry="3" class="actor actor-box" stroke-width="1" stroke="#666" fill="#eaeaea"/>
+      <text x="971" y="831.5" class="actor actor-box" text-anchor="middle" dominant-baseline="central" font-size="16">Storage</text>
+    </g>
+  </g>
+</svg>

@@ -15,7 +15,7 @@ windows-numerics = "0.3"
 # Mermaid parser + dagre-style layout. We pull only the rlib (no png, no cli),
 # parse + lay out a flowchart, apply annotation overrides, then draw the
 # resulting LayoutGraph ourselves via Direct2D.
-selkie-rs = { path = "../zig/selkie", default-features = false }
+selkie-rs = { path = "selkie", default-features = false }
 
 [dependencies.windows]
 version = "0.62"
