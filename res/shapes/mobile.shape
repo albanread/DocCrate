@@ -1,0 +1,11 @@
+# Mobile device.
+
+shape mobile
+    aspect 0.62
+    label 0.5 0.5
+    stroke-mult 1.0
+
+    polygon 0.18,0.04 0.82,0.04 0.82,0.96 0.18,0.96
+    polygon 0.28,0.14 0.72,0.14 0.72,0.78 0.28,0.78
+    circle 0.50 0.88 0.035
+end

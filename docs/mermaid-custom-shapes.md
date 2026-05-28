@@ -9,10 +9,13 @@ metadata syntax:
 A@{ shape: cloud, label: "AWS Region" }
 ```
 
-Two shapes ship in the bundled catalog: `cloud` and `document`. Drop your
-own `.shape` files into `docs/.shapes/` (sibling to your markdown) and they
-become available with the same `@{ shape: name }` syntax. A file whose
-shape name matches a built-in will **override** the bundled version.
+Bundled extension shapes include `cloud`, `document`, and the architecture
+glyph set: `api`, `browser`, `cache`, `database`, `db`, `disk`, `file`,
+`function`, `gateway`, `internet`, `lock`, `mobile`, `queue`, `server`,
+`service`, `user`, and `worker`. Drop your own `.shape` files into
+`docs/.shapes/` (sibling to your markdown) and they become available with the
+same `@{ shape: name }` syntax. A file whose shape name matches a built-in
+will **override** the bundled version.
 
 ## Bundled shapes in a real diagram
 
@@ -45,6 +48,20 @@ sequenceDiagram
 
 The lifeline drops from the bottom-centre of the actor box exactly as for
 a regular participant.
+
+## Architecture icons use the same registry
+
+The icon token in `architecture-beta` service declarations resolves through
+the shape registry too:
+
+```text
+service api(api)[Docs API]
+service db(database)[Metadata DB]
+service queue(queue)[Job Queue]
+```
+
+That means a doc set can replace any architecture glyph globally by adding a
+matching file such as `docs/.shapes/server.shape`.
 
 ## The .shape DSL
 

@@ -1,0 +1,14 @@
+# Cache/storage bucket.
+
+shape cache
+    aspect 1.0
+    label 0.5 0.5
+    stroke-mult 1.0
+
+    moveto 0.18 0.24
+    curveto 0.18 0.08 0.82 0.08 0.82 0.24
+    lineto 0.82 0.76
+    curveto 0.82 0.92 0.18 0.92 0.18 0.76
+    close
+    polygon 0.38,0.36 0.58,0.36 0.48,0.54 0.62,0.54 0.40,0.76 0.48,0.58
+end

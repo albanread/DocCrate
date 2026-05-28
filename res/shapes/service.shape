@@ -1,0 +1,10 @@
+# Generic service/component.
+
+shape service
+    aspect 1.0
+    label 0.5 0.5
+    stroke-mult 1.0
+
+    polygon 0.16,0.20 0.50,0.06 0.84,0.20 0.84,0.80 0.50,0.94 0.16,0.80
+    polygon 0.30,0.36 0.70,0.36 0.70,0.64 0.30,0.64
+end

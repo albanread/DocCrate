@@ -1,0 +1,10 @@
+# Worker/background processor: gear-like silhouette.
+
+shape worker
+    aspect 1.0
+    label 0.5 0.5
+    stroke-mult 1.0
+
+    polygon 0.50,0.06 0.61,0.22 0.80,0.18 0.78,0.38 0.94,0.50 0.78,0.62 0.80,0.82 0.61,0.78 0.50,0.94 0.39,0.78 0.20,0.82 0.22,0.62 0.06,0.50 0.22,0.38 0.20,0.18 0.39,0.22
+    circle 0.50 0.50 0.16
+end

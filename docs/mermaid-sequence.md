@@ -1,7 +1,7 @@
 # Sequence Diagrams
 
-Phase 1 — actors with lifelines and time-ordered messages. Activation boxes,
-notes, and fragments (loop / alt / opt / par) come in a follow-up.
+Actors with lifelines, time-ordered messages, self-messages, and notes.
+Activation boxes and fragments (loop / alt / opt / par) come in a follow-up.
 
 A small request/response chain with a couple of return arrows:
 
@@ -26,6 +26,44 @@ sequenceDiagram
     Queue-)Worker: deliver(msg)
     Worker->>Worker: process(msg)
     Worker-->>Queue: ack
+```
+
+Notes can sit beside one participant or span two participants:
+
+```mermaid
+sequenceDiagram
+    Client->>Gateway: GET /docs/index.md
+    Note right of Gateway: Resolve relative paths before loading
+    Gateway->>Renderer: render(markdown)
+    Note over Gateway,Renderer: synchronous layout pass
+    Renderer-->>Client: native frame
+```
+
+## Manual Sequence Layout
+
+Manual comments can place participant boxes, notes, and the canvas when a
+sequence diagram needs a stable runbook shape. Notes can be targeted by their
+zero-based order as `note:0`, `note:1`, and so on.
+
+```mermaid
+sequenceDiagram
+    participant Reader
+    participant Search
+    participant Parser
+    participant Renderer
+    Reader->>Search: find("rope")
+    Note right of Search: heading-only index keeps search fast
+    Search->>Parser: load selected doc
+    Note over Parser,Renderer: large docs use RopeBuffer
+    Parser->>Renderer: blocks
+    Renderer-->>Reader: highlighted page
+    %% @node Reader x=40 y=18 w=110 h=38
+    %% @node Search x=230 y=18 w=120 h=38
+    %% @node Parser x=430 y=18 w=120 h=38
+    %% @node Renderer x=640 y=18 w=130 h=38
+    %% @note note:0 x=250 y=86 w=220 h=48
+    %% @note note:1 x=416 y=166 w=280 h=48
+    %% @graph w=820 h=290
 ```
 
 Cross-mark for destroyed / lost messages (`-x` solid, `--x` dotted):

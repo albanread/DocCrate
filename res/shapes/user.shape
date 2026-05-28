@@ -1,0 +1,12 @@
+# Person/user actor.
+
+shape user
+    aspect 0.82
+    label 0.5 0.5
+    stroke-mult 1.0
+
+    circle 0.50 0.25 0.16
+    moveto 0.18 0.88
+    curveto 0.20 0.55 0.80 0.55 0.82 0.88
+    close
+end

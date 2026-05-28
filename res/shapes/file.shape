@@ -1,0 +1,10 @@
+# File with a folded corner.
+
+shape file
+    aspect 0.82
+    label 0.5 0.5
+    stroke-mult 1.0
+
+    polygon 0.20,0.06 0.62,0.06 0.82,0.26 0.82,0.94 0.20,0.94
+    polygon 0.62,0.06 0.62,0.28 0.82,0.28
+end

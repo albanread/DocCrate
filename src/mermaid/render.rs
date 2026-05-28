@@ -25,18 +25,18 @@ use crate::theme;
 // ── Cached stroke styles for dashed / dotted edges ─────────────────────────
 // `ID2D1StrokeStyle` is process-wide; once created we re-use forever.
 static DASH_STYLE: OnceLock<ID2D1StrokeStyle> = OnceLock::new();
-static DOT_STYLE:  OnceLock<ID2D1StrokeStyle> = OnceLock::new();
+static DOT_STYLE: OnceLock<ID2D1StrokeStyle> = OnceLock::new();
 
 unsafe fn dash_style(factory: &ID2D1Factory1) -> &'static ID2D1StrokeStyle {
     DASH_STYLE.get_or_init(|| {
         let props = D2D1_STROKE_STYLE_PROPERTIES1 {
-            startCap:      D2D1_CAP_STYLE_FLAT,
-            endCap:        D2D1_CAP_STYLE_FLAT,
-            dashCap:       D2D1_CAP_STYLE_FLAT,
-            lineJoin:      D2D1_LINE_JOIN_MITER,
-            miterLimit:    10.0,
-            dashStyle:     D2D1_DASH_STYLE_DASH,
-            dashOffset:    0.0,
+            startCap: D2D1_CAP_STYLE_FLAT,
+            endCap: D2D1_CAP_STYLE_FLAT,
+            dashCap: D2D1_CAP_STYLE_FLAT,
+            lineJoin: D2D1_LINE_JOIN_MITER,
+            miterLimit: 10.0,
+            dashStyle: D2D1_DASH_STYLE_DASH,
+            dashOffset: 0.0,
             transformType: D2D1_STROKE_TRANSFORM_TYPE_NORMAL,
         };
         let s1: ID2D1StrokeStyle1 = factory
@@ -49,13 +49,13 @@ unsafe fn dash_style(factory: &ID2D1Factory1) -> &'static ID2D1StrokeStyle {
 unsafe fn dot_style(factory: &ID2D1Factory1) -> &'static ID2D1StrokeStyle {
     DOT_STYLE.get_or_init(|| {
         let props = D2D1_STROKE_STYLE_PROPERTIES1 {
-            startCap:      D2D1_CAP_STYLE_ROUND,
-            endCap:        D2D1_CAP_STYLE_ROUND,
-            dashCap:       D2D1_CAP_STYLE_ROUND,
-            lineJoin:      D2D1_LINE_JOIN_MITER,
-            miterLimit:    10.0,
-            dashStyle:     D2D1_DASH_STYLE_DOT,
-            dashOffset:    0.0,
+            startCap: D2D1_CAP_STYLE_ROUND,
+            endCap: D2D1_CAP_STYLE_ROUND,
+            dashCap: D2D1_CAP_STYLE_ROUND,
+            lineJoin: D2D1_LINE_JOIN_MITER,
+            miterLimit: 10.0,
+            dashStyle: D2D1_DASH_STYLE_DOT,
+            dashOffset: 0.0,
             transformType: D2D1_STROKE_TRANSFORM_TYPE_NORMAL,
         };
         let s1: ID2D1StrokeStyle1 = factory
@@ -68,20 +68,20 @@ unsafe fn dot_style(factory: &ID2D1Factory1) -> &'static ID2D1StrokeStyle {
 // ── Cached stroke styles shared with the sequence renderer ─────────────────
 
 static SEQ_LIFELINE_STYLE: OnceLock<ID2D1StrokeStyle> = OnceLock::new();
-static SEQ_DOT_STYLE:      OnceLock<ID2D1StrokeStyle> = OnceLock::new();
+static SEQ_DOT_STYLE: OnceLock<ID2D1StrokeStyle> = OnceLock::new();
 
 /// Lifeline / dashed-line style for sequence diagrams. Different cadence to
 /// the flowchart `dash_style` so they're visually distinguishable.
 pub(crate) unsafe fn sequence_dash_style(factory: &ID2D1Factory1) -> &'static ID2D1StrokeStyle {
     SEQ_LIFELINE_STYLE.get_or_init(|| {
         let props = D2D1_STROKE_STYLE_PROPERTIES1 {
-            startCap:      D2D1_CAP_STYLE_FLAT,
-            endCap:        D2D1_CAP_STYLE_FLAT,
-            dashCap:       D2D1_CAP_STYLE_FLAT,
-            lineJoin:      D2D1_LINE_JOIN_MITER,
-            miterLimit:    10.0,
-            dashStyle:     D2D1_DASH_STYLE_DASH,
-            dashOffset:    0.0,
+            startCap: D2D1_CAP_STYLE_FLAT,
+            endCap: D2D1_CAP_STYLE_FLAT,
+            dashCap: D2D1_CAP_STYLE_FLAT,
+            lineJoin: D2D1_LINE_JOIN_MITER,
+            miterLimit: 10.0,
+            dashStyle: D2D1_DASH_STYLE_DASH,
+            dashOffset: 0.0,
             transformType: D2D1_STROKE_TRANSFORM_TYPE_NORMAL,
         };
         let s1: ID2D1StrokeStyle1 = factory
@@ -95,13 +95,13 @@ pub(crate) unsafe fn sequence_dash_style(factory: &ID2D1Factory1) -> &'static ID
 pub(crate) unsafe fn sequence_dot_style(factory: &ID2D1Factory1) -> &'static ID2D1StrokeStyle {
     SEQ_DOT_STYLE.get_or_init(|| {
         let props = D2D1_STROKE_STYLE_PROPERTIES1 {
-            startCap:      D2D1_CAP_STYLE_ROUND,
-            endCap:        D2D1_CAP_STYLE_ROUND,
-            dashCap:       D2D1_CAP_STYLE_ROUND,
-            lineJoin:      D2D1_LINE_JOIN_MITER,
-            miterLimit:    10.0,
-            dashStyle:     D2D1_DASH_STYLE_DOT,
-            dashOffset:    0.0,
+            startCap: D2D1_CAP_STYLE_ROUND,
+            endCap: D2D1_CAP_STYLE_ROUND,
+            dashCap: D2D1_CAP_STYLE_ROUND,
+            lineJoin: D2D1_LINE_JOIN_MITER,
+            miterLimit: 10.0,
+            dashStyle: D2D1_DASH_STYLE_DOT,
+            dashOffset: 0.0,
             transformType: D2D1_STROKE_TRANSFORM_TYPE_NORMAL,
         };
         let s1: ID2D1StrokeStyle1 = factory
@@ -124,11 +124,31 @@ pub unsafe fn draw_graph(
     oy: f32,
     scale: f32,
     brush: impl FnMut(u32) -> Result<ID2D1SolidColorBrush>,
-    fmt:   impl FnMut(&'static str, f32, bool, bool) -> Result<IDWriteTextFormat>,
+    fmt: impl FnMut(&'static str, f32, bool, bool) -> Result<IDWriteTextFormat>,
 ) -> Result<()> {
     match graph {
+        Graph::Architecture(g) => {
+            crate::mermaid::architecture::draw(target, factory, g, ox, oy, scale, brush, fmt)
+        }
         Graph::Flowchart(g) => draw_flowchart(target, factory, g, ox, oy, scale, brush, fmt),
-        Graph::Sequence(g)  => crate::mermaid::sequence::draw(target, factory, g, ox, oy, scale, brush, fmt),
+        Graph::C4(g) => crate::mermaid::c4::draw(target, factory, g, ox, oy, scale, brush, fmt),
+        Graph::Class(g) => {
+            crate::mermaid::class::draw(target, factory, g, ox, oy, scale, brush, fmt)
+        }
+        Graph::Er(g) => crate::mermaid::er::draw(target, factory, g, ox, oy, scale, brush, fmt),
+        Graph::Gantt(g) => {
+            crate::mermaid::gantt::draw(target, factory, g, ox, oy, scale, brush, fmt)
+        }
+        Graph::Git(g) => crate::mermaid::git::draw(target, factory, g, ox, oy, scale, brush, fmt),
+        Graph::Journey(g) => {
+            crate::mermaid::journey::draw(target, factory, g, ox, oy, scale, brush, fmt)
+        }
+        Graph::Sequence(g) => {
+            crate::mermaid::sequence::draw(target, factory, g, ox, oy, scale, brush, fmt)
+        }
+        Graph::Timeline(g) => {
+            crate::mermaid::timeline::draw(target, factory, g, ox, oy, scale, brush, fmt)
+        }
     }
 }
 
@@ -149,7 +169,7 @@ unsafe fn draw_flowchart(
     oy: f32,
     scale: f32,
     mut brush: impl FnMut(u32) -> Result<ID2D1SolidColorBrush>,
-    mut fmt:   impl FnMut(&'static str, f32, bool, bool) -> Result<IDWriteTextFormat>,
+    mut fmt: impl FnMut(&'static str, f32, bool, bool) -> Result<IDWriteTextFormat>,
 ) -> Result<()> {
     let tx = |x: f32| ox + x * scale;
     let ty = |y: f32| oy + y * scale;
@@ -159,9 +179,9 @@ unsafe fn draw_flowchart(
     if let Some(bg) = graph.background {
         let br = brush(bg)?;
         let r = D2D_RECT_F {
-            left:   ox,
-            top:    oy,
-            right:  ox + graph.width * scale,
+            left: ox,
+            top: oy,
+            right: ox + graph.width * scale,
             bottom: oy + graph.height * scale,
         };
         target.FillRectangle(std::ptr::addr_of!(r), &br);
@@ -170,30 +190,43 @@ unsafe fn draw_flowchart(
     // ── Groups (subgraphs) ────────────────────────────────────────────────
     for g in &graph.groups {
         let r = D2D_RECT_F {
-            left:   tx(g.x),
-            top:    ty(g.y),
-            right:  tx(g.x) + ts(g.w),
+            left: tx(g.x),
+            top: ty(g.y),
+            right: tx(g.x) + ts(g.w),
             bottom: ty(g.y) + ts(g.h),
         };
-        let rr = D2D1_ROUNDED_RECT { rect: r, radiusX: 6.0, radiusY: 6.0 };
+        let rr = D2D1_ROUNDED_RECT {
+            rect: r,
+            radiusX: 6.0,
+            radiusY: 6.0,
+        };
         let fill_br = brush(g.fill)?;
         target.FillRoundedRectangle(std::ptr::addr_of!(rr), &fill_br);
         let stroke_br = brush(g.stroke)?;
-        target.DrawRoundedRectangle(std::ptr::addr_of!(rr), &stroke_br, g.stroke_w, None::<&ID2D1StrokeStyle>);
+        target.DrawRoundedRectangle(
+            std::ptr::addr_of!(rr),
+            &stroke_br,
+            g.stroke_w,
+            None::<&ID2D1StrokeStyle>,
+        );
 
         if let Some(title) = &g.title {
             let f = fmt(theme::BODY_FONT, g.title_font_size, true, false)?;
             let title_br = brush(g.title_color)?;
             let buf: Vec<u16> = title.encode_utf16().collect();
             let title_rect = D2D_RECT_F {
-                left:   r.left + 8.0,
-                top:    r.top  + 4.0,
-                right:  r.right - 8.0,
-                bottom: r.top  + 4.0 + g.title_font_size * 1.4,
+                left: r.left + 8.0,
+                top: r.top + 4.0,
+                right: r.right - 8.0,
+                bottom: r.top + 4.0 + g.title_font_size * 1.4,
             };
             target.DrawText(
-                &buf, &f, std::ptr::addr_of!(title_rect), &title_br,
-                D2D1_DRAW_TEXT_OPTIONS_NONE, DWRITE_MEASURING_MODE_NATURAL,
+                &buf,
+                &f,
+                std::ptr::addr_of!(title_rect),
+                &title_br,
+                D2D1_DRAW_TEXT_OPTIONS_NONE,
+                DWRITE_MEASURING_MODE_NATURAL,
             );
         }
     }
@@ -222,57 +255,102 @@ unsafe fn draw_node(
     ty: &impl Fn(f32) -> f32,
     ts: &impl Fn(f32) -> f32,
     brush: &mut impl FnMut(u32) -> Result<ID2D1SolidColorBrush>,
-    fmt:   &mut impl FnMut(&'static str, f32, bool, bool) -> Result<IDWriteTextFormat>,
+    fmt: &mut impl FnMut(&'static str, f32, bool, bool) -> Result<IDWriteTextFormat>,
 ) -> Result<()> {
-    let x  = tx(n.x);
-    let y  = ty(n.y);
-    let w  = ts(n.w);
-    let h  = ts(n.h);
-    let fill_br   = brush(n.fill)?;
+    let x = tx(n.x);
+    let y = ty(n.y);
+    let w = ts(n.w);
+    let h = ts(n.h);
+    let fill_br = brush(n.fill)?;
     let stroke_br = brush(n.stroke)?;
 
     match n.shape {
         Shape::Rect => {
-            let r = D2D_RECT_F { left: x, top: y, right: x + w, bottom: y + h };
+            let r = D2D_RECT_F {
+                left: x,
+                top: y,
+                right: x + w,
+                bottom: y + h,
+            };
             target.FillRectangle(std::ptr::addr_of!(r), &fill_br);
-            target.DrawRectangle(std::ptr::addr_of!(r), &stroke_br, n.stroke_w, None::<&ID2D1StrokeStyle>);
+            target.DrawRectangle(
+                std::ptr::addr_of!(r),
+                &stroke_br,
+                n.stroke_w,
+                None::<&ID2D1StrokeStyle>,
+            );
         }
         Shape::RoundedRect => {
-            let r = D2D_RECT_F { left: x, top: y, right: x + w, bottom: y + h };
-            let rr = D2D1_ROUNDED_RECT { rect: r, radiusX: 8.0, radiusY: 8.0 };
+            let r = D2D_RECT_F {
+                left: x,
+                top: y,
+                right: x + w,
+                bottom: y + h,
+            };
+            let rr = D2D1_ROUNDED_RECT {
+                rect: r,
+                radiusX: 8.0,
+                radiusY: 8.0,
+            };
             target.FillRoundedRectangle(std::ptr::addr_of!(rr), &fill_br);
-            target.DrawRoundedRectangle(std::ptr::addr_of!(rr), &stroke_br, n.stroke_w, None::<&ID2D1StrokeStyle>);
+            target.DrawRoundedRectangle(
+                std::ptr::addr_of!(rr),
+                &stroke_br,
+                n.stroke_w,
+                None::<&ID2D1StrokeStyle>,
+            );
         }
         Shape::Stadium => {
-            let r = D2D_RECT_F { left: x, top: y, right: x + w, bottom: y + h };
+            let r = D2D_RECT_F {
+                left: x,
+                top: y,
+                right: x + w,
+                bottom: y + h,
+            };
             let radius = (h / 2.0).max(1.0);
-            let rr = D2D1_ROUNDED_RECT { rect: r, radiusX: radius, radiusY: radius };
+            let rr = D2D1_ROUNDED_RECT {
+                rect: r,
+                radiusX: radius,
+                radiusY: radius,
+            };
             target.FillRoundedRectangle(std::ptr::addr_of!(rr), &fill_br);
-            target.DrawRoundedRectangle(std::ptr::addr_of!(rr), &stroke_br, n.stroke_w, None::<&ID2D1StrokeStyle>);
+            target.DrawRoundedRectangle(
+                std::ptr::addr_of!(rr),
+                &stroke_br,
+                n.stroke_w,
+                None::<&ID2D1StrokeStyle>,
+            );
         }
         Shape::Circle | Shape::Ellipse => {
             let cx = x + w / 2.0;
             let cy = y + h / 2.0;
             let (rx, ry) = if matches!(n.shape, Shape::Circle) {
-                let r = w.max(h) / 2.0; (r, r)
+                let r = w.max(h) / 2.0;
+                (r, r)
             } else {
                 (w / 2.0, h / 2.0)
             };
             let e = D2D1_ELLIPSE {
-                point:   Vector2 { X: cx, Y: cy },
-                radiusX: rx, radiusY: ry,
+                point: Vector2 { X: cx, Y: cy },
+                radiusX: rx,
+                radiusY: ry,
             };
             target.FillEllipse(std::ptr::addr_of!(e), &fill_br);
-            target.DrawEllipse(std::ptr::addr_of!(e), &stroke_br, n.stroke_w, None::<&ID2D1StrokeStyle>);
+            target.DrawEllipse(
+                std::ptr::addr_of!(e),
+                &stroke_br,
+                n.stroke_w,
+                None::<&ID2D1StrokeStyle>,
+            );
         }
         Shape::Diamond => {
             let cx = x + w / 2.0;
             let cy = y + h / 2.0;
             let pts = [
-                (cx, y),         // top
-                (x + w, cy),     // right
-                (cx, y + h),     // bottom
-                (x, cy),         // left
+                (cx, y),     // top
+                (x + w, cy), // right
+                (cx, y + h), // bottom
+                (x, cy),     // left
             ];
             let geo = build_polygon(factory, &pts)?;
             target.FillGeometry(&geo, &fill_br, None);
@@ -303,16 +381,34 @@ unsafe fn draw_node(
             let rx_inner = (rx_outer - gap).max(1.0);
             let ry_inner = (ry_outer - gap).max(1.0);
 
-            let outer = D2D1_ELLIPSE { point: Vector2 { X: cx, Y: cy }, radiusX: rx_outer, radiusY: ry_outer };
+            let outer = D2D1_ELLIPSE {
+                point: Vector2 { X: cx, Y: cy },
+                radiusX: rx_outer,
+                radiusY: ry_outer,
+            };
             target.FillEllipse(std::ptr::addr_of!(outer), &fill_br);
-            target.DrawEllipse(std::ptr::addr_of!(outer), &stroke_br, n.stroke_w, None::<&ID2D1StrokeStyle>);
-            let inner = D2D1_ELLIPSE { point: Vector2 { X: cx, Y: cy }, radiusX: rx_inner, radiusY: ry_inner };
-            target.DrawEllipse(std::ptr::addr_of!(inner), &stroke_br, n.stroke_w, None::<&ID2D1StrokeStyle>);
+            target.DrawEllipse(
+                std::ptr::addr_of!(outer),
+                &stroke_br,
+                n.stroke_w,
+                None::<&ID2D1StrokeStyle>,
+            );
+            let inner = D2D1_ELLIPSE {
+                point: Vector2 { X: cx, Y: cy },
+                radiusX: rx_inner,
+                radiusY: ry_inner,
+            };
+            target.DrawEllipse(
+                std::ptr::addr_of!(inner),
+                &stroke_br,
+                n.stroke_w,
+                None::<&ID2D1StrokeStyle>,
+            );
         }
         Shape::Cylinder => {
             // Cap height: ~15% of total, clamped so very short cylinders still look right.
             let cap_h = (h * 0.18).max(6.0).min(h * 0.45);
-            let geo  = build_cylinder_silhouette(factory, x, y, w, h, cap_h)?;
+            let geo = build_cylinder_silhouette(factory, x, y, w, h, cap_h)?;
             target.FillGeometry(&geo, &fill_br, None);
             target.DrawGeometry(&geo, &stroke_br, n.stroke_w, None::<&ID2D1StrokeStyle>);
             // The "open lip" — visible inside-front edge of the top cap.
@@ -321,19 +417,42 @@ unsafe fn draw_node(
         }
         Shape::Subroutine => {
             // Outer rectangle + two vertical inner bars near each short edge.
-            let r = D2D_RECT_F { left: x, top: y, right: x + w, bottom: y + h };
+            let r = D2D_RECT_F {
+                left: x,
+                top: y,
+                right: x + w,
+                bottom: y + h,
+            };
             target.FillRectangle(std::ptr::addr_of!(r), &fill_br);
-            target.DrawRectangle(std::ptr::addr_of!(r), &stroke_br, n.stroke_w, None::<&ID2D1StrokeStyle>);
+            target.DrawRectangle(
+                std::ptr::addr_of!(r),
+                &stroke_br,
+                n.stroke_w,
+                None::<&ID2D1StrokeStyle>,
+            );
             let inset = (w * 0.06).max(6.0).min(w * 0.2);
             target.DrawLine(
                 Vector2 { X: x + inset, Y: y },
-                Vector2 { X: x + inset, Y: y + h },
-                &stroke_br, n.stroke_w, None::<&ID2D1StrokeStyle>,
+                Vector2 {
+                    X: x + inset,
+                    Y: y + h,
+                },
+                &stroke_br,
+                n.stroke_w,
+                None::<&ID2D1StrokeStyle>,
             );
             target.DrawLine(
-                Vector2 { X: x + w - inset, Y: y },
-                Vector2 { X: x + w - inset, Y: y + h },
-                &stroke_br, n.stroke_w, None::<&ID2D1StrokeStyle>,
+                Vector2 {
+                    X: x + w - inset,
+                    Y: y,
+                },
+                Vector2 {
+                    X: x + w - inset,
+                    Y: y + h,
+                },
+                &stroke_br,
+                n.stroke_w,
+                None::<&ID2D1StrokeStyle>,
             );
         }
         Shape::Trapezoid => {
@@ -404,7 +523,12 @@ unsafe fn draw_node(
         }
         Shape::HorizontalBar => {
             // Thin filled bar used for fork/join. No label.
-            let r = D2D_RECT_F { left: x, top: y, right: x + w, bottom: y + h };
+            let r = D2D_RECT_F {
+                left: x,
+                top: y,
+                right: x + w,
+                bottom: y + h,
+            };
             target.FillRectangle(std::ptr::addr_of!(r), &stroke_br);
         }
         Shape::Custom(idx) => {
@@ -412,17 +536,25 @@ unsafe fn draw_node(
                 let geo = build_custom_geometry(factory, def, x, y, w, h)?;
                 target.FillGeometry(&geo, &fill_br, None);
                 target.DrawGeometry(
-                    &geo, &stroke_br,
+                    &geo,
+                    &stroke_br,
                     n.stroke_w * def.stroke_mult,
                     None::<&ID2D1StrokeStyle>,
                 );
             } else {
                 // Registry miss — defensive fallback so the node still appears.
-                let r = D2D_RECT_F { left: x, top: y, right: x + w, bottom: y + h };
+                let r = D2D_RECT_F {
+                    left: x,
+                    top: y,
+                    right: x + w,
+                    bottom: y + h,
+                };
                 target.FillRectangle(std::ptr::addr_of!(r), &fill_br);
                 target.DrawRectangle(
-                    std::ptr::addr_of!(r), &stroke_br,
-                    n.stroke_w, None::<&ID2D1StrokeStyle>,
+                    std::ptr::addr_of!(r),
+                    &stroke_br,
+                    n.stroke_w,
+                    None::<&ID2D1StrokeStyle>,
                 );
             }
         }
@@ -437,13 +569,15 @@ unsafe fn draw_node(
     // `cap_h` formula used by the cylinder geometry above.
     let label_top_pad = if matches!(n.shape, Shape::Cylinder) {
         (h * 0.18).max(6.0).min(h * 0.45)
-    } else { 0.0 };
+    } else {
+        0.0
+    };
 
     // Label — single-line, centred vertically inside the node, horizontal
     // alignment per `n.label_align`. Padding scales down at very small scales
     // so the text doesn't get pinched against borders.
     if !n.label.is_empty() {
-        let pad   = 6.0_f32.min(w * 0.1);
+        let pad = 6.0_f32.min(w * 0.1);
         // Custom shapes can specify a tighter label bounding box via
         // `text-area`; otherwise fall back to the node rect with padding.
         let label_rect = if let Shape::Custom(idx) = n.shape {
@@ -451,37 +585,43 @@ unsafe fn draw_node(
                 Some(def) => {
                     let (lx0, ly0, lx1, ly1) = def.label_rect();
                     D2D_RECT_F {
-                        left:   x + lx0 * w,
-                        top:    y + ly0 * h,
-                        right:  x + lx1 * w,
+                        left: x + lx0 * w,
+                        top: y + ly0 * h,
+                        right: x + lx1 * w,
                         bottom: y + ly1 * h,
                     }
                 }
                 None => D2D_RECT_F {
-                    left: x + pad, top: y + label_top_pad,
-                    right: x + w - pad, bottom: y + h,
+                    left: x + pad,
+                    top: y + label_top_pad,
+                    right: x + w - pad,
+                    bottom: y + h,
                 },
             }
         } else {
             D2D_RECT_F {
-                left:   x + pad,
-                top:    y + label_top_pad,
-                right:  x + w - pad,
+                left: x + pad,
+                top: y + label_top_pad,
+                right: x + w - pad,
                 bottom: y + h,
             }
         };
         let f = fmt(theme::BODY_FONT, n.font_size, n.bold, false)?;
         let _ = f.SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
         let _ = f.SetTextAlignment(match n.label_align {
-            Align::Left   => DWRITE_TEXT_ALIGNMENT_LEADING,
+            Align::Left => DWRITE_TEXT_ALIGNMENT_LEADING,
             Align::Center => DWRITE_TEXT_ALIGNMENT_CENTER,
-            Align::Right  => DWRITE_TEXT_ALIGNMENT_TRAILING,
+            Align::Right => DWRITE_TEXT_ALIGNMENT_TRAILING,
         });
         let buf: Vec<u16> = n.label.encode_utf16().collect();
         let label_br = brush(n.text_color)?;
         target.DrawText(
-            &buf, &f, std::ptr::addr_of!(label_rect), &label_br,
-            D2D1_DRAW_TEXT_OPTIONS_NONE, DWRITE_MEASURING_MODE_NATURAL,
+            &buf,
+            &f,
+            std::ptr::addr_of!(label_rect),
+            &label_br,
+            D2D1_DRAW_TEXT_OPTIONS_NONE,
+            DWRITE_MEASURING_MODE_NATURAL,
         );
         // Restore defaults — the format cache is shared with body-text rendering,
         // so leaving CENTER alignment behind would silently mis-render paragraphs.
@@ -500,7 +640,7 @@ unsafe fn draw_edge(
     tx: &impl Fn(f32) -> f32,
     ty: &impl Fn(f32) -> f32,
     brush: &mut impl FnMut(u32) -> Result<ID2D1SolidColorBrush>,
-    fmt:   &mut impl FnMut(&'static str, f32, bool, bool) -> Result<IDWriteTextFormat>,
+    fmt: &mut impl FnMut(&'static str, f32, bool, bool) -> Result<IDWriteTextFormat>,
 ) -> Result<()> {
     if e.points.len() < 2 {
         return Ok(());
@@ -509,16 +649,24 @@ unsafe fn draw_edge(
     let line_br = brush(e.line_color)?;
     let style: Option<&ID2D1StrokeStyle> = match e.line_style {
         LineStyle::Solid => None,
-        LineStyle::Dash  => Some(dash_style(factory)),
-        LineStyle::Dot   => Some(dot_style(factory)),
+        LineStyle::Dash => Some(dash_style(factory)),
+        LineStyle::Dot => Some(dot_style(factory)),
     };
 
     // Polyline: a series of DrawLine segments. Cheap, no path geometry needed.
     for w in pts.windows(2) {
         target.DrawLine(
-            Vector2 { X: w[0].0, Y: w[0].1 },
-            Vector2 { X: w[1].0, Y: w[1].1 },
-            &line_br, e.line_w, style,
+            Vector2 {
+                X: w[0].0,
+                Y: w[0].1,
+            },
+            Vector2 {
+                X: w[1].0,
+                Y: w[1].1,
+            },
+            &line_br,
+            e.line_w,
+            style,
         );
     }
 
@@ -534,14 +682,27 @@ unsafe fn draw_edge(
 
     // Label
     if let Some(lbl) = &e.label {
-        let lx = tx(lbl.x);
-        let ly = ty(lbl.y);
-        let lw = (tx(lbl.x + lbl.w) - lx).max(1.0);
-        let lh = (ty(lbl.y + lbl.h) - ly).max(1.0);
+        let scaled_lx = tx(lbl.x);
+        let scaled_ly = ty(lbl.y);
+        let scaled_w = (tx(lbl.x + lbl.w) - scaled_lx).max(1.0);
+        let scaled_h = (ty(lbl.y + lbl.h) - scaled_ly).max(1.0);
+        let min_w = lbl.text.chars().count() as f32 * lbl.font_size * 0.62 + 10.0;
+        let min_h = lbl.font_size * theme::LINE_EXTRA + 4.0;
+        let lw = scaled_w.max(min_w);
+        let lh = scaled_h.max(min_h);
+        let cx = tx(lbl.x + lbl.w / 2.0);
+        let cy = ty(lbl.y + lbl.h / 2.0);
+        let lx = cx - lw / 2.0;
+        let ly = cy - lh / 2.0;
 
         // Tiny pill behind the text so it's readable when crossing edge lines.
         let bg_br = brush(theme::BG)?;
-        let r = D2D_RECT_F { left: lx - 2.0, top: ly, right: lx + lw + 2.0, bottom: ly + lh };
+        let r = D2D_RECT_F {
+            left: lx - 2.0,
+            top: ly,
+            right: lx + lw + 2.0,
+            bottom: ly + lh,
+        };
         target.FillRectangle(std::ptr::addr_of!(r), &bg_br);
 
         let f = fmt(theme::BODY_FONT, lbl.font_size, false, false)?;
@@ -549,10 +710,19 @@ unsafe fn draw_edge(
         let _ = f.SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
         let buf: Vec<u16> = lbl.text.encode_utf16().collect();
         let text_br = brush(lbl.text_color)?;
-        let lr = D2D_RECT_F { left: lx, top: ly, right: lx + lw, bottom: ly + lh };
+        let lr = D2D_RECT_F {
+            left: lx,
+            top: ly,
+            right: lx + lw,
+            bottom: ly + lh,
+        };
         target.DrawText(
-            &buf, &f, std::ptr::addr_of!(lr), &text_br,
-            D2D1_DRAW_TEXT_OPTIONS_NONE, DWRITE_MEASURING_MODE_NATURAL,
+            &buf,
+            &f,
+            std::ptr::addr_of!(lr),
+            &text_br,
+            D2D1_DRAW_TEXT_OPTIONS_NONE,
+            DWRITE_MEASURING_MODE_NATURAL,
         );
         let _ = f.SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_NEAR);
         let _ = f.SetTextAlignment(DWRITE_TEXT_ALIGNMENT_LEADING);
@@ -577,7 +747,7 @@ unsafe fn draw_arrow(
     let uy = dy / len;
     // Perpendicular unit vector
     let px = -uy;
-    let py =  ux;
+    let py = ux;
 
     let size = (line_w * 5.0).max(7.0);
 
@@ -585,12 +755,12 @@ unsafe fn draw_arrow(
         Arrow::None => {}
         Arrow::Triangle => {
             // Tip at `a`, base behind it
-            let tip  = (a.0, a.1);
+            let tip = (a.0, a.1);
             let back = (a.0 - ux * size, a.1 - uy * size);
             let half = size * 0.6;
-            let l    = (back.0 + px * half, back.1 + py * half);
-            let r    = (back.0 - px * half, back.1 - py * half);
-            let geo  = build_polygon(factory, &[tip, l, r])?;
+            let l = (back.0 + px * half, back.1 + py * half);
+            let r = (back.0 - px * half, back.1 - py * half);
+            let geo = build_polygon(factory, &[tip, l, r])?;
             target.FillGeometry(&geo, brush, None);
         }
         Arrow::Circle => {
@@ -598,8 +768,9 @@ unsafe fn draw_arrow(
             let cx = a.0 - ux * radius;
             let cy = a.1 - uy * radius;
             let e = D2D1_ELLIPSE {
-                point:   Vector2 { X: cx, Y: cy },
-                radiusX: radius, radiusY: radius,
+                point: Vector2 { X: cx, Y: cy },
+                radiusX: radius,
+                radiusY: radius,
             };
             target.FillEllipse(std::ptr::addr_of!(e), brush);
         }
@@ -611,11 +782,19 @@ unsafe fn draw_arrow(
             let h0 = (a.0 + ux * half, a.1 + uy * half);
             let h1 = (a.0 - ux * half, a.1 - uy * half);
             target.DrawLine(
-                Vector2 { X: v0.0, Y: v0.1 }, Vector2 { X: v1.0, Y: v1.1 },
-                brush, line_w, None::<&ID2D1StrokeStyle>);
+                Vector2 { X: v0.0, Y: v0.1 },
+                Vector2 { X: v1.0, Y: v1.1 },
+                brush,
+                line_w,
+                None::<&ID2D1StrokeStyle>,
+            );
             target.DrawLine(
-                Vector2 { X: h0.0, Y: h0.1 }, Vector2 { X: h1.0, Y: h1.1 },
-                brush, line_w, None::<&ID2D1StrokeStyle>);
+                Vector2 { X: h0.0, Y: h0.1 },
+                Vector2 { X: h1.0, Y: h1.1 },
+                brush,
+                line_w,
+                None::<&ID2D1StrokeStyle>,
+            );
         }
     }
     Ok(())
@@ -629,7 +808,11 @@ unsafe fn draw_arrow(
 /// of the ellipse (visually upward). That's what we want for the top cap.
 unsafe fn build_cylinder_silhouette(
     factory: &ID2D1Factory1,
-    x: f32, y: f32, w: f32, h: f32, cap_h: f32,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    cap_h: f32,
 ) -> Result<ID2D1PathGeometry> {
     let rx = w / 2.0;
     let ry = cap_h / 2.0;
@@ -637,24 +820,36 @@ unsafe fn build_cylinder_silhouette(
     let ymid_bot = y + h - ry;
 
     let geo1: ID2D1PathGeometry1 = factory.CreatePathGeometry()?;
-    let geo:  ID2D1PathGeometry  = geo1.into();
-    let sink: ID2D1GeometrySink  = geo.Open()?;
+    let geo: ID2D1PathGeometry = geo1.into();
+    let sink: ID2D1GeometrySink = geo.Open()?;
 
     sink.BeginFigure(Vector2 { X: x, Y: ymid_top }, D2D1_FIGURE_BEGIN_FILLED);
     sink.AddArc(&D2D1_ARC_SEGMENT {
-        point:          Vector2 { X: x + w, Y: ymid_top },
-        size:           D2D_SIZE_F { width: rx, height: ry },
-        rotationAngle:  0.0,
+        point: Vector2 {
+            X: x + w,
+            Y: ymid_top,
+        },
+        size: D2D_SIZE_F {
+            width: rx,
+            height: ry,
+        },
+        rotationAngle: 0.0,
         sweepDirection: D2D1_SWEEP_DIRECTION_CLOCKWISE,
-        arcSize:        D2D1_ARC_SIZE_SMALL,
+        arcSize: D2D1_ARC_SIZE_SMALL,
     });
-    sink.AddLine(Vector2 { X: x + w, Y: ymid_bot });
+    sink.AddLine(Vector2 {
+        X: x + w,
+        Y: ymid_bot,
+    });
     sink.AddArc(&D2D1_ARC_SEGMENT {
-        point:          Vector2 { X: x, Y: ymid_bot },
-        size:           D2D_SIZE_F { width: rx, height: ry },
-        rotationAngle:  0.0,
+        point: Vector2 { X: x, Y: ymid_bot },
+        size: D2D_SIZE_F {
+            width: rx,
+            height: ry,
+        },
+        rotationAngle: 0.0,
         sweepDirection: D2D1_SWEEP_DIRECTION_CLOCKWISE,
-        arcSize:        D2D1_ARC_SIZE_SMALL,
+        arcSize: D2D1_ARC_SIZE_SMALL,
     });
     sink.EndFigure(D2D1_FIGURE_END_CLOSED);
     sink.Close()?;
@@ -665,25 +860,34 @@ unsafe fn build_cylinder_silhouette(
 /// downward through the bottom of the top ellipse, indicating depth.
 unsafe fn build_cylinder_top_lip(
     factory: &ID2D1Factory1,
-    x: f32, y: f32, w: f32, cap_h: f32,
+    x: f32,
+    y: f32,
+    w: f32,
+    cap_h: f32,
 ) -> Result<ID2D1PathGeometry> {
     let rx = w / 2.0;
     let ry = cap_h / 2.0;
     let ymid_top = y + ry;
 
     let geo1: ID2D1PathGeometry1 = factory.CreatePathGeometry()?;
-    let geo:  ID2D1PathGeometry  = geo1.into();
-    let sink: ID2D1GeometrySink  = geo.Open()?;
+    let geo: ID2D1PathGeometry = geo1.into();
+    let sink: ID2D1GeometrySink = geo.Open()?;
 
     sink.BeginFigure(Vector2 { X: x, Y: ymid_top }, D2D1_FIGURE_BEGIN_HOLLOW);
     // Counter-clockwise from left endpoint → right endpoint passes through the
     // bottom of the ellipse (because of the y-down convention).
     sink.AddArc(&D2D1_ARC_SEGMENT {
-        point:          Vector2 { X: x + w, Y: ymid_top },
-        size:           D2D_SIZE_F { width: rx, height: ry },
-        rotationAngle:  0.0,
+        point: Vector2 {
+            X: x + w,
+            Y: ymid_top,
+        },
+        size: D2D_SIZE_F {
+            width: rx,
+            height: ry,
+        },
+        rotationAngle: 0.0,
         sweepDirection: D2D1_SWEEP_DIRECTION_COUNTER_CLOCKWISE,
-        arcSize:        D2D1_ARC_SIZE_SMALL,
+        arcSize: D2D1_ARC_SIZE_SMALL,
     });
     sink.EndFigure(D2D1_FIGURE_END_OPEN);
     sink.Close()?;
@@ -697,7 +901,10 @@ unsafe fn build_cylinder_top_lip(
 pub(crate) unsafe fn build_custom_geometry_pub(
     factory: &ID2D1Factory1,
     def: &crate::mermaid::shape_def::ShapeDef,
-    x: f32, y: f32, w: f32, h: f32,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
 ) -> Result<ID2D1PathGeometry> {
     build_custom_geometry(factory, def, x, y, w, h)
 }
@@ -707,7 +914,10 @@ pub(crate) unsafe fn build_custom_geometry_pub(
 unsafe fn build_custom_geometry(
     factory: &ID2D1Factory1,
     def: &crate::mermaid::shape_def::ShapeDef,
-    x: f32, y: f32, w: f32, h: f32,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
 ) -> Result<ID2D1PathGeometry> {
     use crate::mermaid::shape_def::PathCmd;
     let geo1: ID2D1PathGeometry1 = factory.CreatePathGeometry()?;
@@ -720,64 +930,115 @@ unsafe fn build_custom_geometry(
     for cmd in &def.commands {
         match cmd {
             PathCmd::MoveTo(nx, ny) => {
-                if open { sink.EndFigure(D2D1_FIGURE_END_OPEN); }
+                if open {
+                    sink.EndFigure(D2D1_FIGURE_END_OPEN);
+                }
                 sink.BeginFigure(
-                    Vector2 { X: tx(*nx), Y: ty(*ny) },
+                    Vector2 {
+                        X: tx(*nx),
+                        Y: ty(*ny),
+                    },
                     D2D1_FIGURE_BEGIN_FILLED,
                 );
                 open = true;
             }
             PathCmd::LineTo(nx, ny) => {
-                sink.AddLine(Vector2 { X: tx(*nx), Y: ty(*ny) });
+                sink.AddLine(Vector2 {
+                    X: tx(*nx),
+                    Y: ty(*ny),
+                });
             }
             PathCmd::CurveTo(c1x, c1y, c2x, c2y, nx, ny) => {
                 sink.AddBezier(&D2D1_BEZIER_SEGMENT {
-                    point1: Vector2 { X: tx(*c1x), Y: ty(*c1y) },
-                    point2: Vector2 { X: tx(*c2x), Y: ty(*c2y) },
-                    point3: Vector2 { X: tx(*nx),  Y: ty(*ny)  },
+                    point1: Vector2 {
+                        X: tx(*c1x),
+                        Y: ty(*c1y),
+                    },
+                    point2: Vector2 {
+                        X: tx(*c2x),
+                        Y: ty(*c2y),
+                    },
+                    point3: Vector2 {
+                        X: tx(*nx),
+                        Y: ty(*ny),
+                    },
                 });
             }
             PathCmd::QuadTo(cx, cy, nx, ny) => {
                 sink.AddQuadraticBezier(&D2D1_QUADRATIC_BEZIER_SEGMENT {
-                    point1: Vector2 { X: tx(*cx), Y: ty(*cy) },
-                    point2: Vector2 { X: tx(*nx), Y: ty(*ny) },
+                    point1: Vector2 {
+                        X: tx(*cx),
+                        Y: ty(*cy),
+                    },
+                    point2: Vector2 {
+                        X: tx(*nx),
+                        Y: ty(*ny),
+                    },
                 });
             }
             PathCmd::Polygon(pts) => {
-                if open { sink.EndFigure(D2D1_FIGURE_END_OPEN); open = false; }
+                if open {
+                    sink.EndFigure(D2D1_FIGURE_END_OPEN);
+                    open = false;
+                }
                 if let Some(&(nx, ny)) = pts.first() {
                     sink.BeginFigure(
-                        Vector2 { X: tx(nx), Y: ty(ny) },
+                        Vector2 {
+                            X: tx(nx),
+                            Y: ty(ny),
+                        },
                         D2D1_FIGURE_BEGIN_FILLED,
                     );
-                    let rest: Vec<Vector2> = pts[1..].iter()
-                        .map(|p| Vector2 { X: tx(p.0), Y: ty(p.1) })
+                    let rest: Vec<Vector2> = pts[1..]
+                        .iter()
+                        .map(|p| Vector2 {
+                            X: tx(p.0),
+                            Y: ty(p.1),
+                        })
                         .collect();
                     sink.AddLines(&rest);
                     sink.EndFigure(D2D1_FIGURE_END_CLOSED);
                 }
             }
             PathCmd::Circle(cx, cy, r) => {
-                if open { sink.EndFigure(D2D1_FIGURE_END_OPEN); open = false; }
+                if open {
+                    sink.EndFigure(D2D1_FIGURE_END_OPEN);
+                    open = false;
+                }
                 // Approximate full ellipse with two 180° arcs.
                 let rw = r * w;
                 let rh = r * h;
                 let cxv = tx(*cx);
                 let cyv = ty(*cy);
                 sink.BeginFigure(
-                    Vector2 { X: cxv - rw, Y: cyv },
+                    Vector2 {
+                        X: cxv - rw,
+                        Y: cyv,
+                    },
                     D2D1_FIGURE_BEGIN_FILLED,
                 );
                 sink.AddArc(&D2D1_ARC_SEGMENT {
-                    point: Vector2 { X: cxv + rw, Y: cyv },
-                    size:  D2D_SIZE_F { width: rw, height: rh },
+                    point: Vector2 {
+                        X: cxv + rw,
+                        Y: cyv,
+                    },
+                    size: D2D_SIZE_F {
+                        width: rw,
+                        height: rh,
+                    },
                     rotationAngle: 0.0,
                     sweepDirection: D2D1_SWEEP_DIRECTION_CLOCKWISE,
                     arcSize: D2D1_ARC_SIZE_SMALL,
                 });
                 sink.AddArc(&D2D1_ARC_SEGMENT {
-                    point: Vector2 { X: cxv - rw, Y: cyv },
-                    size:  D2D_SIZE_F { width: rw, height: rh },
+                    point: Vector2 {
+                        X: cxv - rw,
+                        Y: cyv,
+                    },
+                    size: D2D_SIZE_F {
+                        width: rw,
+                        height: rh,
+                    },
                     rotationAngle: 0.0,
                     sweepDirection: D2D1_SWEEP_DIRECTION_CLOCKWISE,
                     arcSize: D2D1_ARC_SIZE_SMALL,
@@ -792,20 +1053,22 @@ unsafe fn build_custom_geometry(
             }
         }
     }
-    if open { sink.EndFigure(D2D1_FIGURE_END_OPEN); }
+    if open {
+        sink.EndFigure(D2D1_FIGURE_END_OPEN);
+    }
     sink.Close()?;
     Ok(geo)
 }
 
-unsafe fn build_polygon(
-    factory: &ID2D1Factory1,
-    pts: &[(f32, f32)],
-) -> Result<ID2D1PathGeometry> {
+unsafe fn build_polygon(factory: &ID2D1Factory1, pts: &[(f32, f32)]) -> Result<ID2D1PathGeometry> {
     let geo1: ID2D1PathGeometry1 = factory.CreatePathGeometry()?;
     let geo: ID2D1PathGeometry = geo1.into();
     let sink: ID2D1GeometrySink = geo.Open()?;
     sink.BeginFigure(
-        Vector2 { X: pts[0].0, Y: pts[0].1 },
+        Vector2 {
+            X: pts[0].0,
+            Y: pts[0].1,
+        },
         D2D1_FIGURE_BEGIN_FILLED,
     );
     let rest: Vec<Vector2> = pts[1..]

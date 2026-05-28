@@ -1,0 +1,13 @@
+# Browser/client window.
+
+shape browser
+    aspect 1.15
+    label 0.5 0.5
+    stroke-mult 1.0
+
+    polygon 0.10,0.16 0.90,0.16 0.90,0.84 0.10,0.84
+    polygon 0.10,0.16 0.90,0.16 0.90,0.32 0.10,0.32
+    circle 0.22 0.24 0.025
+    circle 0.31 0.24 0.025
+    circle 0.40 0.24 0.025
+end

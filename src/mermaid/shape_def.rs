@@ -62,17 +62,17 @@ pub enum PathCmd {
 
 #[derive(Debug, Clone)]
 pub struct ShapeDef {
-    pub name:        String,
+    pub name: String,
     /// Hard aspect ratio (w / h). When `Some`, doccrate overrides the node
     /// dimensions before layout so the shape renders at its intended ratio.
-    pub aspect:      Option<f32>,
-    pub label_cx:    f32,
-    pub label_cy:    f32,
+    pub aspect: Option<f32>,
+    pub label_cx: f32,
+    pub label_cy: f32,
     /// Optional tighter label bounding box `(x0, y0, x1, y1)`. Defaults to
     /// the full node rectangle.
-    pub text_area:   Option<(f32, f32, f32, f32)>,
+    pub text_area: Option<(f32, f32, f32, f32)>,
     pub stroke_mult: f32,
-    pub commands:    Vec<PathCmd>,
+    pub commands: Vec<PathCmd>,
 }
 
 impl ShapeDef {
@@ -89,7 +89,10 @@ pub struct ShapeRegistry {
 
 impl ShapeRegistry {
     pub fn new() -> Self {
-        Self { defs: Vec::new(), index: HashMap::new() }
+        Self {
+            defs: Vec::new(),
+            index: HashMap::new(),
+        }
     }
 
     /// Insert or replace a shape by name. Returns the index for use in
@@ -113,7 +116,9 @@ impl ShapeRegistry {
         self.defs.get(idx as usize)
     }
 
-    pub fn len(&self) -> usize { self.defs.len() }
+    pub fn len(&self) -> usize {
+        self.defs.len()
+    }
 
     /// Convenience: parse `source` as a shape file and insert the result.
     pub fn load_text(&mut self, source: &str) -> Result<u32, String> {
@@ -125,8 +130,8 @@ impl ShapeRegistry {
 /// Parse a single shape file. Returns the shape def or a human-readable
 /// error string (line number included).
 pub fn parse(source: &str) -> Result<ShapeDef, String> {
-    let mut name: Option<String>  = None;
-    let mut aspect: Option<f32>   = None;
+    let mut name: Option<String> = None;
+    let mut aspect: Option<f32> = None;
     let mut label_cx: f32 = 0.5;
     let mut label_cy: f32 = 0.5;
     let mut text_area: Option<(f32, f32, f32, f32)> = None;
@@ -137,19 +142,26 @@ pub fn parse(source: &str) -> Result<ShapeDef, String> {
     for (ln, raw_line) in source.lines().enumerate() {
         let line_no = ln + 1;
         let line = strip_comment(raw_line).trim();
-        if line.is_empty() { continue; }
+        if line.is_empty() {
+            continue;
+        }
 
         let mut it = line.split_ascii_whitespace();
         let head = it.next().unwrap();
         match head {
             "shape" => {
-                let n = it.next().ok_or_else(|| ferr(line_no, "shape needs a name"))?;
+                let n = it
+                    .next()
+                    .ok_or_else(|| ferr(line_no, "shape needs a name"))?;
                 if name.is_some() {
                     return Err(ferr(line_no, "multiple `shape` headers"));
                 }
                 name = Some(n.to_string());
             }
-            "end" => { saw_end = true; break; }
+            "end" => {
+                saw_end = true;
+                break;
+            }
             "aspect" => {
                 aspect = Some(num(line_no, it.next())?);
             }
@@ -167,27 +179,44 @@ pub fn parse(source: &str) -> Result<ShapeDef, String> {
             "stroke-mult" => {
                 stroke_mult = num(line_no, it.next())?;
             }
-            "moveto"  => cmds.push(PathCmd::MoveTo(num(line_no, it.next())?, num(line_no, it.next())?)),
-            "lineto"  => cmds.push(PathCmd::LineTo(num(line_no, it.next())?, num(line_no, it.next())?)),
+            "moveto" => cmds.push(PathCmd::MoveTo(
+                num(line_no, it.next())?,
+                num(line_no, it.next())?,
+            )),
+            "lineto" => cmds.push(PathCmd::LineTo(
+                num(line_no, it.next())?,
+                num(line_no, it.next())?,
+            )),
             "curveto" => cmds.push(PathCmd::CurveTo(
-                num(line_no, it.next())?, num(line_no, it.next())?,
-                num(line_no, it.next())?, num(line_no, it.next())?,
-                num(line_no, it.next())?, num(line_no, it.next())?,
+                num(line_no, it.next())?,
+                num(line_no, it.next())?,
+                num(line_no, it.next())?,
+                num(line_no, it.next())?,
+                num(line_no, it.next())?,
+                num(line_no, it.next())?,
             )),
-            "quadto"  => cmds.push(PathCmd::QuadTo(
-                num(line_no, it.next())?, num(line_no, it.next())?,
-                num(line_no, it.next())?, num(line_no, it.next())?,
+            "quadto" => cmds.push(PathCmd::QuadTo(
+                num(line_no, it.next())?,
+                num(line_no, it.next())?,
+                num(line_no, it.next())?,
+                num(line_no, it.next())?,
             )),
-            "circle"  => cmds.push(PathCmd::Circle(
-                num(line_no, it.next())?, num(line_no, it.next())?, num(line_no, it.next())?,
+            "circle" => cmds.push(PathCmd::Circle(
+                num(line_no, it.next())?,
+                num(line_no, it.next())?,
+                num(line_no, it.next())?,
             )),
             "polygon" => {
                 let mut pts: Vec<(f32, f32)> = Vec::new();
                 for tok in it {
                     let mut s = tok.splitn(2, ',');
-                    let x = s.next().and_then(|t| t.parse::<f32>().ok())
+                    let x = s
+                        .next()
+                        .and_then(|t| t.parse::<f32>().ok())
                         .ok_or_else(|| ferr(line_no, "polygon: expected x,y"))?;
-                    let y = s.next().and_then(|t| t.parse::<f32>().ok())
+                    let y = s
+                        .next()
+                        .and_then(|t| t.parse::<f32>().ok())
                         .ok_or_else(|| ferr(line_no, "polygon: expected x,y"))?;
                     pts.push((x, y));
                 }
@@ -208,16 +237,28 @@ pub fn parse(source: &str) -> Result<ShapeDef, String> {
     if cmds.is_empty() {
         return Err(format!("shape `{}` has no geometry commands", name));
     }
-    Ok(ShapeDef { name, aspect, label_cx, label_cy, text_area, stroke_mult, commands: cmds })
+    Ok(ShapeDef {
+        name,
+        aspect,
+        label_cx,
+        label_cy,
+        text_area,
+        stroke_mult,
+        commands: cmds,
+    })
 }
 
 fn strip_comment(s: &str) -> &str {
-    match s.find('#') { Some(i) => &s[..i], None => s }
+    match s.find('#') {
+        Some(i) => &s[..i],
+        None => s,
+    }
 }
 
 fn num(line_no: usize, tok: Option<&str>) -> Result<f32, String> {
     let t = tok.ok_or_else(|| ferr(line_no, "expected number"))?;
-    t.parse::<f32>().map_err(|_| ferr(line_no, &format!("`{}` is not a number", t)))
+    t.parse::<f32>()
+        .map_err(|_| ferr(line_no, &format!("`{}` is not a number", t)))
 }
 
 fn ferr(line_no: usize, msg: &str) -> String {

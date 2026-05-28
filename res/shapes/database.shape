@@ -1,0 +1,16 @@
+# Database cylinder silhouette.
+
+shape database
+    aspect 1.0
+    label 0.5 0.5
+    stroke-mult 1.0
+
+    moveto 0.18 0.24
+    curveto 0.18 0.08 0.82 0.08 0.82 0.24
+    lineto 0.82 0.76
+    curveto 0.82 0.92 0.18 0.92 0.18 0.76
+    close
+    moveto 0.18 0.24
+    curveto 0.18 0.40 0.82 0.40 0.82 0.24
+    close
+end

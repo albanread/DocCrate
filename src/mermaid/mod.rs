@@ -17,11 +17,20 @@
 //! 4. `render::draw_graph(target, ...)` dispatches on the [`ir::Graph`]
 //!    variant.
 
-pub mod ir;
+pub mod architecture;
 pub mod build;
+pub mod c4;
+pub mod class;
+pub mod er;
+pub mod gantt;
+pub mod git;
+pub mod ir;
+pub mod journey;
+pub mod manual_layout;
 pub mod render;
 pub mod sequence;
 pub mod shape_def;
+pub mod timeline;
 
-pub use ir::Graph;
 pub use build::build;
+pub use ir::Graph;

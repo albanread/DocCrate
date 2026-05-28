@@ -128,6 +128,7 @@ dependencies = [
 name = "doc-crate"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "pulldown-cmark",
  "selkie-rs",
  "windows",

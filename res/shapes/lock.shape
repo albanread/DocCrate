@@ -1,0 +1,18 @@
+# Lock/security node.
+
+shape lock
+    aspect 0.82
+    label 0.5 0.5
+    stroke-mult 1.0
+
+    moveto 0.28 0.42
+    lineto 0.28 0.28
+    curveto 0.28 0.08 0.72 0.08 0.72 0.28
+    lineto 0.72 0.42
+    lineto 0.60 0.42
+    lineto 0.60 0.28
+    curveto 0.60 0.20 0.40 0.20 0.40 0.28
+    lineto 0.40 0.42
+    close
+    polygon 0.18,0.42 0.82,0.42 0.82,0.94 0.18,0.94
+end
