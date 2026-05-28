@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
+
+  <assemblyIdentity
+    version="1.0.0.0"
+    processorArchitecture="*"
+    name="DocCrate"
+    type="win32"
+  />
+
+  <description>DocCrate — Native Windows Markdown Documentation Viewer</description>
+
+  <!-- Common Controls v6: enables visual styles (themed title bar, scrollbars, etc.) -->
+  <dependency>
+    <dependentAssembly>
+      <assemblyIdentity
+        type="win32"
+        name="Microsoft.Windows.Common-Controls"
+        version="6.0.0.0"
+        processorArchitecture="*"
+        publicKeyToken="6595b64144ccf1df"
+        language="*"
+      />
+    </dependentAssembly>
+  </dependency>
+
+  <!-- DPI awareness — belt-and-suspenders alongside the SetProcessDpiAwarenessContext
+       call in main.rs; takes effect on older Windows 10 builds that may miss the API. -->
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">
+        true/PM
+      </dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">
+        PerMonitorV2
+      </dpiAwareness>
+      <!-- Suppress the GDI scaling layer so Direct2D owns all pixel math -->
+      <gdiScaling xmlns="http://schemas.microsoft.com/SMI/2017/WindowsSettings">
+        false
+      </gdiScaling>
+    </windowsSettings>
+  </application>
+
+  <!-- Windows compatibility GUIDs — tells the kernel which compatibility
+       shims NOT to apply, enabling correct behaviour on Win 10 and 11. -->
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Windows 10 / Windows Server 2016 and later -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/>
+    </application>
+  </compatibility>
+
+</assembly>

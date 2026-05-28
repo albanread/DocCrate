@@ -37,7 +37,6 @@ pub const RULE:         u32 = 0x3C3C3C;
 
 pub const BODY_FONT:    &str = "Segoe UI";
 pub const CODE_FONT:    &str = "Cascadia Code";
-pub const CODE_FONT2:   &str = "Consolas"; // fallback
 
 pub const BODY_SIZE:    f32 = 15.0;
 pub const CODE_SIZE:    f32 = 13.5;
@@ -56,7 +55,36 @@ pub const PARA_GAP:     f32 = 10.0;
 pub const LINE_EXTRA:   f32 = 1.4; // line-height multiplier
 pub const H_RULE_H:     f32 = 1.0;
 pub const CODE_PAD:     f32 = 12.0;
+// Vertical offset to baseline-align inline code (Cascadia Code) with body text (Segoe UI).
+// Cascadia Code ascender ≈ 0.928× size; Segoe UI ascender ≈ 1.079× size.
+// At BODY_SIZE=15 / CODE_SIZE=13.5 the baseline gap is ~3.7 DIPs.
+pub const INLINE_CODE_Y: f32 = 3.5;
 pub const BQ_BAR_W:     f32 = 4.0;
 pub const BQ_PAD:       f32 = 16.0;
-pub const SIDEBAR_ITEM_H: f32 = 26.0;
+pub const SIDEBAR_ITEM_H:   f32 = 26.0;
 pub const SIDEBAR_FONT_SIZE: f32 = 13.0;
+pub const SIDEBAR_INDENT:   f32 = 12.0;  // per-depth indent step in the sidebar tree
+pub const SIDEBAR_DIR:      u32 = 0x6A9955; // muted green — directory header label
+
+// ---------------------------------------------------------------------------
+// Mermaid diagram defaults
+//
+// Used when a node, edge, or subgraph has no `@annotation` override for that
+// property. Annotations always take precedence; these are just the fallback
+// palette so diagrams sit comfortably inside the doccrate dark theme.
+// ---------------------------------------------------------------------------
+pub const MERMAID_NODE_FILL:    u32 = 0x252526;       // matches SIDEBAR_BG
+pub const MERMAID_NODE_STROKE:  u32 = 0x4FC1FF;       // doccrate link blue
+pub const MERMAID_NODE_TEXT:    u32 = 0xD4D4D4;       // body text
+pub const MERMAID_EDGE:         u32 = 0x808080;       // dim grey lines
+pub const MERMAID_EDGE_LABEL:   u32 = 0xD4D4D4;
+pub const MERMAID_GROUP_FILL:   u32 = 0x1B1B1B;       // slightly darker than BG
+pub const MERMAID_GROUP_STROKE: u32 = 0x3C3C3C;       // BORDER
+pub const MERMAID_GROUP_TITLE:  u32 = 0x9CDCFE;       // matches H2
+
+pub const MERMAID_NODE_STROKE_W: f32 = 1.5;
+pub const MERMAID_EDGE_W:        f32 = 1.5;
+pub const MERMAID_GROUP_STROKE_W: f32 = 1.0;
+pub const MERMAID_NODE_FONT_SIZE:  f32 = 13.0;
+pub const MERMAID_EDGE_FONT_SIZE:  f32 = 11.5;
+pub const MERMAID_GROUP_FONT_SIZE: f32 = 12.5;

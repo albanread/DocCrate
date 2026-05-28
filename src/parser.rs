@@ -1,4 +1,8 @@
+use std::sync::Arc;
+
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd, HeadingLevel, CodeBlockKind};
+
+use crate::mermaid;
 
 #[derive(Debug, Clone)]
 pub enum Inline {
@@ -8,8 +12,21 @@ pub enum Inline {
     BoldItalic(String),
     Code(String),
     Link { text: String, href: String },
+    Image { alt: String, src: String },
     SoftBreak,
     HardBreak,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ColAlign { None, Left, Center, Right }
+
+/// A single item in a toolbar: an icon image + a navigation link.
+#[derive(Debug, Clone)]
+pub struct ToolbarItem {
+    pub image_path: String,
+    pub image_alt:  String,
+    pub label:      String,
+    pub href:       String,
 }
 
 #[derive(Debug, Clone)]
@@ -21,11 +38,22 @@ pub enum Block {
     BulletList(Vec<Vec<Inline>>),
     OrderedList { start: u64, items: Vec<Vec<Inline>> },
     ThematicBreak,
+    Table { headers: Vec<String>, rows: Vec<Vec<String>>, alignments: Vec<ColAlign> },
+    /// A toolbar row: detected from a 2-row table where all header cells are
+    /// images and the single body row contains all links.
+    Toolbar(Vec<ToolbarItem>),
+    /// A ```mermaid fenced code block. Pre-parsed and laid out at markdown
+    /// parse time, so re-layout on resize is just a transform on the cached
+    /// `Arc<Graph>`. `error` is set (and `graph` is `None`) when selkie fails
+    /// to parse the source — the renderer falls back to showing the original
+    /// text as a code block in that case.
+    Mermaid { source: String, graph: Option<Arc<mermaid::Graph>>, error: Option<String> },
 }
 
 pub fn parse(md: &str) -> Vec<Block> {
     let mut opts = Options::empty();
     opts.insert(Options::ENABLE_STRIKETHROUGH);
+    opts.insert(Options::ENABLE_TABLES);
     let events: Vec<Event> = Parser::new_ext(md, opts).collect();
     let mut pos = 0;
     parse_blocks(&events, &mut pos, None)
@@ -68,9 +96,15 @@ fn parse_blocks(events: &[Event], pos: &mut usize, end_tag: Option<TagEnd>) -> V
                         _ => { *pos += 1; }
                     }
                 }
-                // Strip trailing newline from code
                 if code.ends_with('\n') { code.pop(); }
-                blocks.push(Block::CodeBlock { lang, code });
+                if lang.eq_ignore_ascii_case("mermaid") {
+                    match mermaid::build(&code) {
+                        Ok(g)  => blocks.push(Block::Mermaid { source: code, graph: Some(Arc::new(g)), error: None }),
+                        Err(e) => blocks.push(Block::Mermaid { source: code, graph: None, error: Some(e) }),
+                    }
+                } else {
+                    blocks.push(Block::CodeBlock { lang, code });
+                }
             }
             Event::Start(Tag::BlockQuote(_)) => {
                 *pos += 1;
@@ -88,18 +122,94 @@ fn parse_blocks(events: &[Event], pos: &mut usize, end_tag: Option<TagEnd>) -> V
                     blocks.push(Block::BulletList(items));
                 }
             }
+            Event::Start(Tag::Table(aligns)) => {
+                let alignments = aligns.iter().map(|a| match a {
+                    pulldown_cmark::Alignment::Left   => ColAlign::Left,
+                    pulldown_cmark::Alignment::Center => ColAlign::Center,
+                    pulldown_cmark::Alignment::Right  => ColAlign::Right,
+                    pulldown_cmark::Alignment::None   => ColAlign::None,
+                }).collect();
+                *pos += 1;
+                blocks.push(parse_table(events, pos, alignments));
+            }
             Event::Rule => {
                 blocks.push(Block::ThematicBreak);
                 *pos += 1;
             }
-            Event::End(_) => {
-                *pos += 1;
-            }
+            Event::End(_) => { *pos += 1; }
             _ => { *pos += 1; }
         }
     }
     blocks
 }
+
+// ── Table / toolbar parsing ────────────────────────────────────────────────
+
+fn parse_table(events: &[Event], pos: &mut usize, alignments: Vec<ColAlign>) -> Block {
+    let mut header_cells: Vec<Vec<Inline>> = Vec::new();
+    let mut row_cells: Vec<Vec<Vec<Inline>>> = Vec::new();
+
+    while *pos < events.len() {
+        match &events[*pos] {
+            Event::End(TagEnd::Table) => { *pos += 1; break; }
+            Event::Start(Tag::TableHead) => {
+                *pos += 1;
+                header_cells = parse_table_row_inlines(events, pos, TagEnd::TableHead);
+            }
+            Event::Start(Tag::TableRow) => {
+                *pos += 1;
+                row_cells.push(parse_table_row_inlines(events, pos, TagEnd::TableRow));
+            }
+            _ => { *pos += 1; }
+        }
+    }
+
+    // Toolbar detection: exactly 1 body row, all headers = lone image,
+    // all body cells = lone link.
+    if !header_cells.is_empty() && row_cells.len() == 1 {
+        let all_img  = header_cells.iter().all(|c| matches!(c.as_slice(), [Inline::Image { .. }]));
+        let all_link = row_cells[0].iter().all(|c| matches!(c.as_slice(), [Inline::Link { .. }]));
+        if all_img && all_link {
+            let items = header_cells.iter().zip(row_cells[0].iter()).map(|(hc, rc)| {
+                let (image_path, image_alt) = match &hc[0] {
+                    Inline::Image { src, alt } => (src.clone(), alt.clone()),
+                    _ => unreachable!(),
+                };
+                let (label, href) = match &rc[0] {
+                    Inline::Link { text, href } => (text.clone(), href.clone()),
+                    _ => unreachable!(),
+                };
+                ToolbarItem { image_path, image_alt, label, href }
+            }).collect();
+            return Block::Toolbar(items);
+        }
+    }
+
+    // Regular table — convert inlines to plain text per cell.
+    let headers = header_cells.iter().map(|c| collect_inline_text(c)).collect();
+    let rows = row_cells.iter()
+        .map(|row| row.iter().map(|c| collect_inline_text(c)).collect())
+        .collect();
+    Block::Table { headers, rows, alignments }
+}
+
+/// Parse a table row, returning one `Vec<Inline>` per cell.
+fn parse_table_row_inlines(events: &[Event], pos: &mut usize, end: TagEnd) -> Vec<Vec<Inline>> {
+    let mut cells = Vec::new();
+    while *pos < events.len() {
+        match &events[*pos] {
+            Event::End(t) if *t == end => { *pos += 1; break; }
+            Event::Start(Tag::TableCell) => {
+                *pos += 1;
+                cells.push(parse_inlines(events, pos, TagEnd::TableCell));
+            }
+            _ => { *pos += 1; }
+        }
+    }
+    cells
+}
+
+// ── List parsing ───────────────────────────────────────────────────────────
 
 fn parse_list_items(events: &[Event], pos: &mut usize) -> Vec<Vec<Inline>> {
     let mut items = Vec::new();
@@ -108,8 +218,7 @@ fn parse_list_items(events: &[Event], pos: &mut usize) -> Vec<Vec<Inline>> {
             Event::End(TagEnd::List(_)) => { *pos += 1; break; }
             Event::Start(Tag::Item) => {
                 *pos += 1;
-                let inlines = collect_item_inlines(events, pos);
-                items.push(inlines);
+                items.push(collect_item_inlines(events, pos));
             }
             _ => { *pos += 1; }
         }
@@ -128,14 +237,14 @@ fn collect_item_inlines(events: &[Event], pos: &mut usize) -> Vec<Inline> {
                 result.append(&mut inner);
             }
             _ => {
-                // Bare inline in item
-                let inline = parse_one_inline(events, pos);
-                if let Some(i) = inline { result.push(i); }
+                if let Some(i) = parse_one_inline(events, pos) { result.push(i); }
             }
         }
     }
     result
 }
+
+// ── Inline parsing ─────────────────────────────────────────────────────────
 
 fn parse_inlines(events: &[Event], pos: &mut usize, end: TagEnd) -> Vec<Inline> {
     let mut inlines = Vec::new();
@@ -143,8 +252,7 @@ fn parse_inlines(events: &[Event], pos: &mut usize, end: TagEnd) -> Vec<Inline> 
         match &events[*pos] {
             Event::End(t) if *t == end => { *pos += 1; break; }
             _ => {
-                let inline = parse_one_inline(events, pos);
-                if let Some(i) = inline { inlines.push(i); }
+                if let Some(i) = parse_one_inline(events, pos) { inlines.push(i); }
             }
         }
     }
@@ -154,13 +262,11 @@ fn parse_inlines(events: &[Event], pos: &mut usize, end: TagEnd) -> Vec<Inline> 
 fn parse_one_inline(events: &[Event], pos: &mut usize) -> Option<Inline> {
     match &events[*pos] {
         Event::Text(t) => {
-            let s = t.to_string();
-            *pos += 1;
+            let s = t.to_string(); *pos += 1;
             Some(Inline::Text(s))
         }
         Event::Code(t) => {
-            let s = t.to_string();
-            *pos += 1;
+            let s = t.to_string(); *pos += 1;
             Some(Inline::Code(s))
         }
         Event::SoftBreak => { *pos += 1; Some(Inline::SoftBreak) }
@@ -168,11 +274,21 @@ fn parse_one_inline(events: &[Event], pos: &mut usize) -> Option<Inline> {
         Event::Start(Tag::Strong) => {
             *pos += 1;
             let inlines = parse_inlines(events, pos, TagEnd::Strong);
+            if inlines.len() == 1 {
+                if let Inline::Italic(t) = &inlines[0] {
+                    return Some(Inline::BoldItalic(t.clone()));
+                }
+            }
             Some(Inline::Bold(collect_inline_text(&inlines)))
         }
         Event::Start(Tag::Emphasis) => {
             *pos += 1;
             let inlines = parse_inlines(events, pos, TagEnd::Emphasis);
+            if inlines.len() == 1 {
+                if let Inline::Bold(t) = &inlines[0] {
+                    return Some(Inline::BoldItalic(t.clone()));
+                }
+            }
             Some(Inline::Italic(collect_inline_text(&inlines)))
         }
         Event::Start(Tag::Link { dest_url, .. }) => {
@@ -182,17 +298,25 @@ fn parse_one_inline(events: &[Event], pos: &mut usize) -> Option<Inline> {
             let text = collect_inline_text(&inlines);
             Some(Inline::Link { text, href })
         }
+        Event::Start(Tag::Image { dest_url, .. }) => {
+            let src = dest_url.to_string();
+            *pos += 1;
+            let inlines = parse_inlines(events, pos, TagEnd::Image);
+            let alt = collect_inline_text(&inlines);
+            Some(Inline::Image { alt, src })
+        }
         _ => { *pos += 1; None }
     }
 }
 
-fn collect_inline_text(inlines: &[Inline]) -> String {
+pub fn collect_inline_text(inlines: &[Inline]) -> String {
     let mut s = String::new();
     for i in inlines {
         match i {
             Inline::Text(t) | Inline::Bold(t) | Inline::Italic(t)
             | Inline::BoldItalic(t) | Inline::Code(t) => s.push_str(t),
             Inline::Link { text, .. } => s.push_str(text),
+            Inline::Image { alt, .. }  => s.push_str(alt),
             Inline::SoftBreak | Inline::HardBreak => s.push(' '),
         }
     }
@@ -201,22 +325,14 @@ fn collect_inline_text(inlines: &[Inline]) -> String {
 
 fn hl(level: HeadingLevel) -> u8 {
     match level {
-        HeadingLevel::H1 => 1,
-        HeadingLevel::H2 => 2,
-        HeadingLevel::H3 => 3,
-        HeadingLevel::H4 => 4,
-        HeadingLevel::H5 => 5,
-        HeadingLevel::H6 => 6,
+        HeadingLevel::H1 => 1, HeadingLevel::H2 => 2, HeadingLevel::H3 => 3,
+        HeadingLevel::H4 => 4, HeadingLevel::H5 => 5, HeadingLevel::H6 => 6,
     }
 }
 
 fn heading_level(n: u8) -> HeadingLevel {
     match n {
-        1 => HeadingLevel::H1,
-        2 => HeadingLevel::H2,
-        3 => HeadingLevel::H3,
-        4 => HeadingLevel::H4,
-        5 => HeadingLevel::H5,
-        _ => HeadingLevel::H6,
+        1 => HeadingLevel::H1, 2 => HeadingLevel::H2, 3 => HeadingLevel::H3,
+        4 => HeadingLevel::H4, 5 => HeadingLevel::H5, _ => HeadingLevel::H6,
     }
 }
